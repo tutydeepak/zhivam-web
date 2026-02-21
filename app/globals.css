@@ -1,4 +1,20 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'ChettaVissto';
+  src: url('/fonts/ChettaVissto.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-chetta {
+  font-family: 'ChettaVissto', sans-serif;
+}
+
 
 :root {
   --background: #ffffff;
@@ -23,4 +39,42 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes thermalGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.hover-gradient {
+  display: inline-block;
+  color: white;
+  /* Default color */
+  background: none;
+  /* No gradient initially */
+  background-clip: text;
+  -webkit-background-clip: text;
+  transition: all 0.3s ease;
+}
+
+.hover-gradient:hover {
+  color: transparent;
+  /* Make text transparent on hover */
+  background: linear-gradient(90deg,
+      red,
+      orange,
+      yellow,
+      green,
+      blue);
+  background-size: 400% 400%;
+  animation: thermalGradient 4s linear infinite;
 }
