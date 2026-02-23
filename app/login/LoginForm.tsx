@@ -159,7 +159,7 @@ export default function LoginForm() {
                     </AnimatePresence>
 
                     <motion.p variants={itemVariants} className="text-center text-sm text-slate-400 !mt-8">
-                        Don't have an account?{' '}
+                        Don&apos;t have an account?{' '}
                         <Link href="/signup" className="font-semibold text-cyan-400 hover:underline">
                             Sign Up
                         </Link>

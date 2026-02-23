@@ -52,7 +52,7 @@ export default function ContactPage() {
                     <div className="text-center md:text-left">
                         <h1 className="text-4xl md:text-5xl font-bold">Contact Us</h1>
                         <p className="text-slate-400 mt-3">
-                            Have a project or question? We'd love to hear from you.
+                            Have a project or question? We&apos;d love to hear from you.
                         </p>
                     </div>
                 </div>
@@ -92,8 +92,8 @@ export default function ContactPage() {
                                 type="email"
                                 placeholder="you@email.com"
                                 className={`w-full bg-slate-900/60 border rounded-lg px-4 py-3 focus:outline-none transition ${emailError
-                                        ? "border-red-500"
-                                        : "border-slate-700 focus:border-cyan-400"
+                                    ? "border-red-500"
+                                    : "border-slate-700 focus:border-cyan-400"
                                     }`}
                             />
                             {emailError && (
@@ -117,8 +117,8 @@ export default function ContactPage() {
                                 type="tel"
                                 placeholder="+919876543210"
                                 className={`w-full bg-slate-900/60 border rounded-lg px-4 py-3 focus:outline-none transition ${phoneError
-                                        ? "border-red-500"
-                                        : "border-slate-700 focus:border-cyan-400"
+                                    ? "border-red-500"
+                                    : "border-slate-700 focus:border-cyan-400"
                                     }`}
                             />
                             {phoneError && (
