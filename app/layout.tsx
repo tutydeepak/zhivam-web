@@ -9,6 +9,9 @@ import FloatingContactButton from "@/app/components/FloatingContactButton";
 export const metadata: Metadata = {
     title: "Zhivam Web",
     description: "A next-gen service ordering platform",
+    icons: {
+        icon: "app/zhivam.ico",
+    },
 };
 
 const geist = Geist({
