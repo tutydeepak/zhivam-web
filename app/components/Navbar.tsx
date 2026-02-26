@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -136,8 +137,14 @@ export default function Navbar() {
                 {/* LEFT */}
                 <div className="flex items-center gap-4">
                     {/* Logo */}
-                    <Link href="/" className="text-2xl font-bold text-cyan-400 font-mono tracking-tight hover:text-cyan-300 transition-colors">
-                        Z
+                    <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+                        <Image
+                            src="/images/Zhivam logo.png"
+                            alt="Zhivam"
+                            width={56}
+                            height={56}
+                            className="object-contain"
+                        />
                     </Link>
 
                     {/* Desktop nav */}
