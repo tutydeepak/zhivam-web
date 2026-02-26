@@ -1,13 +1,11 @@
 // app/ServicesSection.tsx
-
 "use client";
 
 import { motion } from "framer-motion";
-import { Eye, Clock, IndianRupee } from 'lucide-react'; // Changed ShoppingCart to Eye for clarity
+import { Clock, IndianRupee, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image"; // Imported the Next.js Image component
+import Image from "next/image";
 
-// Sample data for the service cards
 export const services = [
     { id: 1, title: "Aluminum Extrusion", description: "Cost-effective process for creating custom cross-sectional profiles for linear heat sinks.", cycleTime: "5-7 Days", price: "5,000", imageUrl: "/images/extrusion.png" },
     { id: 2, title: "CNC Machining", description: "High-precision machining for complex geometries and prototypes with tight tolerances.", cycleTime: "3-5 Days", price: "12,000", imageUrl: "/images/cnc.png" },
@@ -18,10 +16,9 @@ export const services = [
     { id: 7, title: "Cold Forging", description: "Improves thermal conductivity by shaping metal at room temperature, ideal for pin fin designs.", cycleTime: "8-10 Days", price: "15,000", imageUrl: "/images/forged.png" },
     { id: 8, title: "Liquid Cold Plates", description: "Advanced liquid cooling solution for high-power density electronics and demanding applications.", cycleTime: "12-15 Days", price: "35,000", imageUrl: "/images/liquid-plate.png" },
     { id: 9, title: "Heat Pipe Integration", description: "Integrate heat pipes into your assembly to efficiently transfer heat away from the source.", cycleTime: "5-8 Days", price: "9,000", imageUrl: "/images/heat-pipe.png" },
-    { id: 10, title: "Vapor Chamber Assembly", description: "Two-phase heat transfer devices that provide rapid, uniform heat spreading for high heat flux.", cycleTime: "14-18 Days", price: "45,000", imageUrl: "/images/vapor-chamber.png" }
+    { id: 10, title: "Vapor Chamber Assembly", description: "Two-phase heat transfer devices that provide rapid, uniform heat spreading for high heat flux.", cycleTime: "14-18 Days", price: "45,000", imageUrl: "/images/vapor-chamber.png" },
 ];
 
-// Reusable Service Card Component
 interface Service {
     id: number;
     title: string;
@@ -31,56 +28,143 @@ interface Service {
     imageUrl: string;
 }
 
-const ServiceCard = ({ service }: { service: Service }) => (
-    <Link href={`/services/${service.id}`} className="block h-full group" passHref>
-        <motion.div
-            className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl overflow-hidden flex flex-col h-full cursor-pointer"
-            whileHover={{ y: -5, boxShadow: "0px 10px 30px rgba(0, 255, 255, 0.1)" }}
-            transition={{ type: "spring", stiffness: 300 }}
-        >
-            <div className="relative w-full h-48 overflow-hidden">
-                <Image
-                    src={service.imageUrl}
-                    alt={service.title}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-110"
-                />
-            </div>
-            <div className="p-5 flex flex-col flex-grow">
-                <h3 className="text-xl font-bold text-cyan-400 mb-2">{service.title}</h3>
-                <p className="text-gray-300 text-sm mb-4 flex-grow line-clamp-3">{service.description}</p>
-                <div className="mt-auto space-y-3 border-t border-slate-700 pt-4">
-                    <div className="flex justify-between items-center text-gray-400 text-sm">
-                        <span className="flex items-center gap-2"><Clock size={16} /> Cycle Time</span>
-                        <span className="font-semibold text-white">{service.cycleTime}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-gray-400 text-sm">
-                        <span className="flex items-center gap-2"><IndianRupee size={16} /> Starting Price</span>
-                        <span className="font-semibold text-white">₹{service.price}</span>
+const cardVariants = {
+    hidden: { opacity: 0, y: 24 },
+    visible: (i: number) => ({
+        opacity: 1,
+        y: 0,
+        transition: {
+            duration: 0.5,
+            delay: i * 0.06,
+            ease: "easeOut" as const,
+        },
+    }),
+};
+
+const ServiceCard = ({ service, index }: { service: Service; index: number }) => (
+    <motion.div
+        custom={index}
+        variants={cardVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-60px" }}
+    >
+        <Link href={`/services/${service.id}`} className="block h-full group" passHref>
+            <div className="relative h-full flex flex-col bg-[#0d1520] border border-slate-700/60 rounded-2xl overflow-hidden transition-all duration-300 hover:border-cyan-500/50 hover:shadow-[0_0_32px_rgba(6,182,212,0.08)]">
+
+                {/* Index number — top left corner */}
+                <span className="absolute top-4 left-4 z-10 text-xs font-mono text-slate-500 bg-slate-900/80 border border-slate-700/60 rounded-md px-2 py-0.5 tabular-nums">
+                    {String(index + 1).padStart(2, "0")}
+                </span>
+
+                {/* Arrow icon — top right on hover */}
+                <span className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <ArrowUpRight className="w-4 h-4 text-cyan-400" />
+                </span>
+
+                {/* Image */}
+                <div className="relative w-full h-44 overflow-hidden bg-slate-800/40">
+                    <Image
+                        src={service.imageUrl}
+                        alt={service.title}
+                        fill
+                        loading="lazy"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100"
+                    />
+                    {/* Bottom image fade */}
+                    <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#0d1520] to-transparent" />
+                </div>
+
+                {/* Body */}
+                <div className="flex flex-col flex-grow p-5 pt-4">
+                    <h3 className="text-base font-semibold text-white mb-2 group-hover:text-cyan-400 transition-colors duration-200 leading-snug">
+                        {service.title}
+                    </h3>
+                    <p className="text-slate-400 text-xs leading-relaxed line-clamp-3 flex-grow">
+                        {service.description}
+                    </p>
+
+                    {/* Divider */}
+                    <div className="mt-4 pt-4 border-t border-slate-700/50 grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1">
+                            <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-slate-500 font-medium">
+                                <Clock size={10} /> Lead Time
+                            </span>
+                            <span className="text-xs font-semibold text-white">{service.cycleTime}</span>
+                        </div>
+                        <div className="flex flex-col gap-1 items-end text-right">
+                            <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-slate-500 font-medium">
+                                <IndianRupee size={10} /> From
+                            </span>
+                            <span className="text-xs font-semibold text-cyan-400">₹{service.price}</span>
+                        </div>
                     </div>
                 </div>
-                {/* This is now a styled div instead of a button, as the whole card is a link */}
-                <div className="mt-5 w-full bg-cyan-500 text-slate-900 font-bold py-2.5 px-4 rounded-lg group-hover:bg-cyan-400 transition-colors duration-300 flex items-center justify-center gap-2">
-                    <Eye size={18} /> View Details
-                </div>
             </div>
-        </motion.div>
-    </Link>
+        </Link>
+    </motion.div>
 );
 
 export default function ServicesSection() {
     return (
-        <section id="services" className="py-20 px-4 md:px-8">
-            <div className="container mx-auto">
-                <h2 className="text-4xl font-extrabold text-center text-white mb-4">
-                    Our Manufacturing Services
-                </h2>
-                <p className="text-center text-gray-400 max-w-2xl mx-auto mb-12">
-                    Explore our wide range of high-precision heatsink manufacturing capabilities tailored to your thermal management needs.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {services.map(service => (
-                        <ServiceCard key={service.id} service={service} />
+        <section id="services" className="relative py-24 px-4 md:px-8 bg-[#080c14] overflow-hidden">
+
+            {/* Background grid texture */}
+            <div
+                className="pointer-events-none absolute inset-0 opacity-[0.03]"
+                style={{
+                    backgroundImage: `linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(to right, #22d3ee 1px, transparent 1px)`,
+                    backgroundSize: "48px 48px",
+                }}
+            />
+
+            {/* Ambient glow */}
+            <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-cyan-500/5 blur-[100px] rounded-full" />
+
+            <div className="relative container mx-auto max-w-screen-xl">
+
+                {/* Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6, ease: "easeOut" as const }}
+                    className="mb-14"
+                >
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="h-px w-8 bg-cyan-500" />
+                        <span className="text-xs font-mono uppercase tracking-[0.2em] text-cyan-500">
+                            Manufacturing Capabilities
+                        </span>
+                    </div>
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                        <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
+                            Our Services
+                        </h2>
+                        <p className="text-slate-400 text-sm max-w-sm leading-relaxed md:text-right">
+                            High-precision heatsink manufacturing capabilities tailored to your thermal management needs.
+                        </p>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="mt-8 flex flex-wrap gap-6 border-t border-slate-700/50 pt-6">
+                        {[
+                            { label: "Manufacturing Processes", value: `${services.length}+` },
+                            { label: "Min. Lead Time", value: "3 Days" },
+                            { label: "Starting From", value: "₹3,000" },
+                        ].map((stat) => (
+                            <div key={stat.label} className="flex flex-col gap-0.5">
+                                <span className="text-xl font-bold text-white tabular-nums">{stat.value}</span>
+                                <span className="text-xs text-slate-500 uppercase tracking-wider">{stat.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                </motion.div>
+
+                {/* Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                    {services.map((service, i) => (
+                        <ServiceCard key={service.id} service={service} index={i} />
                     ))}
                 </div>
             </div>
