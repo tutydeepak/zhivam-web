@@ -4,11 +4,11 @@ import { motion } from "framer-motion";
 
 export default function LogoSection() {
     const logos = [
-        "/images/logos/logo1.png",
-        "/images/logos/logo2.png",
-        "/images/logos/logo3.png",
-        "/images/logos/logo4.png",
-        "/images/logos/logo5.png",
+        "/images/logos/msme.png",
+        "/images/logos/iitd.png",
+        "/images/logos/ihfc.png",
+        "/images/logos/cem.png",
+        // "/images/logos/logo5.png",
     ];
 
     return (
@@ -56,7 +56,7 @@ export default function LogoSection() {
                 </motion.div>
 
                 {/* Logo grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4">
                     {logos.map((logo, index) => (
                         <motion.div
                             key={index}
@@ -64,7 +64,7 @@ export default function LogoSection() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: "-40px" }}
                             transition={{ duration: 0.5, delay: index * 0.08, ease: "easeOut" as const }}
-                            className="group relative bg-[#0d1520] border border-slate-700/60 rounded-2xl p-6 flex items-center justify-center hover:border-cyan-500/40 transition-all duration-300"
+                            className="group relative bg-[#0d1520] border border-slate-700/60 rounded-2xl p-4 flex items-center justify-center hover:border-cyan-500/40 transition-all duration-300 h-28"
                         >
                             {/* Index badge */}
                             <span className="absolute top-3 left-3 text-[10px] font-mono text-slate-600 tabular-nums">
@@ -76,7 +76,7 @@ export default function LogoSection() {
                                 alt={`Partner ${index + 1}`}
                                 loading="lazy"
                                 decoding="async"
-                                className="max-h-12 w-full object-contain grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
+                                className="max-h-20 w-full object-contain brightness-0 invert opacity-60 transition-all duration-300"
                             />
                         </motion.div>
                     ))}

@@ -6,19 +6,19 @@ const cards = [
     {
         index: "01",
         title: "Technical Experience",
-        image: "/images/tech.png",
+        image: "/images/techincal-expertise.png",
         desc: "We bring deep technical expertise in electronic thermal management, covering air cooling, liquid cooling, immersion cooling, and battery thermal systems. Our team works across design, simulation, prototyping, and testing, using advanced multiphysics tools to deliver reliable and application-ready thermal solutions."
     },
     {
         index: "02",
         title: "High ROI",
-        image: "/images/roi.png",
+        image: "/images/high-roi.png",
         desc: "Optimized thermal design improves performance, reliability, and product lifetime while reducing redesign cycles and testing costs. Our simulation-driven and validation-backed approach helps customers achieve faster development, lower thermal risk, and higher return on investment for electronics, batteries, and energy systems."
     },
     {
         index: "03",
         title: "Looking Ahead",
-        image: "/images/future.png",
+        image: "/images/look-ahead.png",
         desc: "As power density and heat flux continue to rise, we focus on next-generation cooling technologies such as liquid-cooled cold plates, phase change materials, thermal capacitors, and immersion cooling. Zhivam partners with industry to future-proof products through scalable, efficient, and sustainable thermal solutions."
     },
 ];
