@@ -1,3 +1,4 @@
+// app/blog/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -5,7 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 
-const blogs = [
+export const blogs = [
     {
         id: "1",
         title: "Thermal Management Strategies for Power Electronics",
@@ -113,7 +114,7 @@ export default function BlogPage() {
                     transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" as const }}
                     className="mb-6"
                 >
-                    <Link href={`/blog/${featured.id}`} className="group block">
+                    <Link href={`/blog/${featured.id}`} className="group block cursor-pointer">
                         <div className="relative rounded-2xl overflow-hidden border border-slate-700/60 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-[0_0_40px_rgba(6,182,212,0.08)]">
 
                             {/* Image */}
@@ -145,11 +146,6 @@ export default function BlogPage() {
                                     <ArrowUpRight className="w-5 h-5" />
                                 </div>
                             </div>
-
-                            {/* Index badge */}
-                            <span className="absolute top-5 left-5 text-xs font-mono text-slate-500 bg-slate-900/80 border border-slate-700/60 rounded-md px-2 py-0.5">
-                                01
-                            </span>
                         </div>
                     </Link>
                 </motion.div>
@@ -165,13 +161,8 @@ export default function BlogPage() {
                             whileInView="visible"
                             viewport={{ once: true, margin: "-60px" }}
                         >
-                            <Link href={`/blog/${blog.id}`} className="group block h-full">
+                            <Link href={`/blog/${blog.id}`} className="group block h-full cursor-pointer">
                                 <div className="relative h-full flex flex-col bg-[#0d1520] border border-slate-700/60 rounded-2xl overflow-hidden transition-all duration-300 hover:border-cyan-500/50 hover:shadow-[0_0_32px_rgba(6,182,212,0.08)]">
-
-                                    {/* Index badge */}
-                                    <span className="absolute top-4 left-4 z-10 text-xs font-mono text-slate-500 bg-slate-900/80 border border-slate-700/60 rounded-md px-2 py-0.5">
-                                        {String(i + 2).padStart(2, "0")}
-                                    </span>
 
                                     {/* Arrow */}
                                     <span className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -191,15 +182,17 @@ export default function BlogPage() {
                                     </div>
 
                                     {/* Body */}
-                                    <div className="flex flex-col flex-grow p-5">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 rounded-full px-2.5 py-0.5">
-                                                {blog.category}
-                                            </span>
+                                    <div className="flex flex-col flex-grow p-5 justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 rounded-full px-2.5 py-0.5">
+                                                    {blog.category}
+                                                </span>
+                                            </div>
+                                            <h2 className="text-sm font-semibold text-white leading-snug group-hover:text-cyan-400 transition-colors duration-200">
+                                                {blog.title}
+                                            </h2>
                                         </div>
-                                        <h2 className="text-sm font-semibold text-white leading-snug group-hover:text-cyan-400 transition-colors duration-200 flex-grow">
-                                            {blog.title}
-                                        </h2>
                                         <div className="mt-4 pt-4 border-t border-slate-700/50">
                                             <span className="text-xs font-mono text-slate-500">{blog.date}</span>
                                         </div>

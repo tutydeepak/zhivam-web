@@ -66,11 +66,6 @@ export default function LogoSection() {
                             transition={{ duration: 0.5, delay: index * 0.08, ease: "easeOut" as const }}
                             className="group relative bg-[#0d1520] border border-slate-700/60 rounded-2xl p-4 flex items-center justify-center hover:border-cyan-500/40 transition-all duration-300 h-28"
                         >
-                            {/* Index badge */}
-                            <span className="absolute top-3 left-3 text-[10px] font-mono text-slate-600 tabular-nums">
-                                {String(index + 1).padStart(2, "0")}
-                            </span>
-
                             <img
                                 src={logo}
                                 alt={`Partner ${index + 1}`}

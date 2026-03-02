@@ -181,9 +181,7 @@ const ServiceCard = ({ service, index }: { service: Service; index: number }) =>
     >
         <Link href={`/services/${service.id}`} className="block h-full group" passHref>
             <div className="relative h-full flex flex-col bg-[#0d1520] border border-slate-700/60 rounded-2xl overflow-hidden transition-all duration-300 hover:border-cyan-500/50 hover:shadow-[0_0_32px_rgba(6,182,212,0.08)]">
-                <span className="absolute top-4 left-4 z-10 text-xs font-mono text-slate-500 bg-slate-900/80 border border-slate-700/60 rounded-md px-2 py-0.5 tabular-nums">
-                    {String(index + 1).padStart(2, "0")}
-                </span>
+                {/* Arrow only — no number badge */}
                 <span className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <ArrowUpRight className="w-4 h-4 text-cyan-400" />
                 </span>
@@ -225,19 +223,18 @@ const RdServiceCard = ({ service, index }: { service: RdService; index: number }
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.5, delay: (index % 2) * 0.1, ease: "easeOut" as const }}
-            className="group bg-[#0d1520] border border-slate-700/60 rounded-2xl overflow-hidden hover:border-cyan-500/40 transition-all duration-300"
+            className="group bg-[#0d1520] border border-slate-700/60 rounded-2xl overflow-hidden hover:border-cyan-500/40 transition-all duration-300 h-full"
         >
-            <div className="flex flex-col md:flex-row md:items-stretch">
+            <div className="flex flex-col md:flex-row md:items-stretch h-full">
                 {/* Image */}
-                <div className={`relative w-full md:w-60 shrink-0 h-56 md:h-auto overflow-hidden bg-slate-800/40 ${!isEven ? "md:order-2" : ""}`}>
+                <div className={`relative w-full md:w-60 shrink-0 h-56 md:h-auto md:self-stretch overflow-hidden bg-slate-800/40 ${!isEven ? "md:order-2" : ""}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={service.imageUrl}
                         alt={service.title}
                         loading="lazy"
-                        className="w-full h-full object-cover object-center opacity-75 group-hover:opacity-95 group-hover:scale-105 transition-all duration-500"
+                        className="absolute inset-0 w-full h-full object-cover object-center opacity-75 group-hover:opacity-95 group-hover:scale-105 transition-all duration-500"
                     />
-                    {/* fade toward content */}
                     <div className={`absolute inset-0 hidden md:block ${isEven
                         ? "bg-gradient-to-r from-transparent to-[#0d1520]"
                         : "bg-gradient-to-l from-transparent to-[#0d1520]"}`}
@@ -246,13 +243,11 @@ const RdServiceCard = ({ service, index }: { service: RdService; index: number }
                 </div>
 
                 {/* Content */}
-                <div className={`flex flex-col justify-center p-6 flex-grow min-h-[200px] ${!isEven ? "md:order-1" : ""}`}>
-                    {/* Index + rule */}
-                    <div className="flex items-center gap-3 mb-3">
-                        <span className="text-[10px] font-mono text-slate-600 tabular-nums">
-                            {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span className="h-px flex-1 bg-slate-700/50" />
+                {/* Changed `justify-center` to `justify-start` below */}
+                <div className={`flex flex-col justify-start p-6 flex-grow min-h-[200px] ${!isEven ? "md:order-1" : ""}`}>
+                    {/* Divider rule — no number badge */}
+                    <div className="mb-3">
+                        <span className="h-px block w-full bg-slate-700/50" />
                     </div>
 
                     <h3 className="text-lg font-bold text-white leading-snug mb-1 group-hover:text-cyan-400 transition-colors duration-200">
@@ -323,7 +318,6 @@ export default function ServicesSection() {
                     </div>
                     <div className="mt-8 flex flex-wrap gap-6 border-t border-slate-700/50 pt-6">
                         {[
-                            // { label: "Service Areas", value: `${rdServices.length}` },
                             { label: "Domains", value: "Thermal, Energy, PCB" },
                             { label: "Engagement", value: "R&D to Production" },
                         ].map((stat) => (
