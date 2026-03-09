@@ -134,7 +134,7 @@ export default function ContactPage() {
 
                     <motion.div {...fadeUp(0.8)} className="mt-10 pt-10 border-t border-slate-800 space-y-3">
                         {[
-                            { label: "Email", value: "hello@zhivam.com" },
+                            { label: "Email", value: "info@zhivam.com" },
                             { label: "Based in", value: "India" },
                         ].map((item) => (
                             <div key={item.label} className="flex items-center gap-3 text-sm">

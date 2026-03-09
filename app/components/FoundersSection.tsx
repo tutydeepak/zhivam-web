@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 const team = [
     {
         name: "Dr. S. Manikandan",
-        role: "Founder & Chief Technical Lead\n\u00A0",
+        role: "Founder & Chief Technical Officer\n\u00A0",
         image: "/images/DrSManikandan.webp",
         linkedin: "https://www.linkedin.com/in/maniiitd/",
         desc: "Dr. S. Manikandan is a thermal engineering expert with extensive experience in electronic thermal management, liquid cooling, phase change materials, immersion cooling, and battery thermal systems. He has led multiple industry- and government-funded R&D projects, holds granted patents, and actively collaborates with academia and industry on next-generation cooling technologies. His expertise spans design, multiphysics simulation, prototyping, testing, and technology commercialization, forming the technical backbone of Zhivam."
@@ -128,10 +128,7 @@ export default function TeamSection() {
                             }}
                             className="team-card relative bg-[#0d1520] border border-slate-700/60 rounded-2xl p-6 flex flex-col items-center text-center w-full hover:border-cyan-500/40 transition-colors duration-300"
                         >
-                            {/* Index badge */}
-                            <span className="absolute top-4 left-4 text-xs font-mono text-slate-500 bg-slate-900/80 border border-slate-700/60 rounded-md px-2 py-0.5 tabular-nums">
-                                {String(index + 1).padStart(2, "0")}
-                            </span>
+                            
 
                             {/* LinkedIn badge */}
                             <a

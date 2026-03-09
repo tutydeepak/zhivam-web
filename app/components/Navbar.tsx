@@ -139,7 +139,7 @@ export default function Navbar() {
                     {/* Logo */}
                     <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
                         <Image
-                            src="/images/Zhivam logo.png"
+                            src="/images/favicon (1).png"
                             alt="Zhivam"
                             width={56}
                             height={56}

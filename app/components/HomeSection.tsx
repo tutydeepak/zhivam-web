@@ -74,7 +74,7 @@ export default function Home() {
                     initial="hidden"
                     animate="visible"
                 >
-                    {/* Eyebrow label */}
+                    {/* Eyebrow label
                     <motion.div variants={itemVariants} className="flex items-center gap-3">
                         <span className="h-px w-8 bg-cyan-500" />
                         <span className="text-xs font-mono uppercase tracking-[0.2em] text-cyan-500">
@@ -87,7 +87,7 @@ export default function Home() {
                         className="text-3xl md:text-4xl font-normal text-slate-300 -mb-2"
                     >
                         Welcome to
-                    </motion.h2>
+                    </motion.h2> */}
 
                     {/* Zhivam Text with Spotlight */}
                     <motion.h1
@@ -150,7 +150,7 @@ export default function Home() {
                         variants={itemVariants}
                         className="flex flex-wrap gap-6 border-t border-slate-700/50 pt-6 mt-2 w-full"
                     >
-                        {[
+                        {/* {[
                             { label: "Manufacturing Processes", value: "10+" },
                             { label: "Min. Lead Time", value: "3 Days" },
                             { label: "Starting From", value: "₹3,000" },
@@ -159,7 +159,7 @@ export default function Home() {
                                 <span className="text-xl font-bold text-white tabular-nums">{stat.value}</span>
                                 <span className="text-xs text-slate-500 uppercase tracking-wider">{stat.label}</span>
                             </div>
-                        ))}
+                        ))} */}
                     </motion.div>
                 </motion.div>
 

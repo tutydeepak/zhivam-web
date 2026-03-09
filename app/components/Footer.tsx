@@ -90,7 +90,7 @@ export default function Footer() {
                         <p className="text-xs tracking-widest text-slate-500 mb-4">
                             LOCATION
                         </p>
-                        <p className="text-lg text-slate-200">CHENGALPATTU, TN</p>
+                        <p className="text-lg text-slate-200">CHENNAI, TN</p>
                     </div>
 
                     {/* HQ */}
@@ -101,8 +101,8 @@ export default function Footer() {
 
                         <p className="text-sm leading-relaxed">
                             Center For Electric Mobility<br />
-                            Second Story<br />
-                            Chengalpattu, TN<br />
+                            Second Floor<br />
+                            Chennai, TN<br />
                             Phone: +91 833 385 0202
                         </p>
                     </div>

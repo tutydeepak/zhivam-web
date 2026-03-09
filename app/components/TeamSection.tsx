@@ -146,10 +146,10 @@ export default function TeamSection() {
                             }}
                             className="relative bg-[#0d1520] border border-slate-700/60 rounded-2xl p-6 flex flex-col items-center text-center w-full overflow-hidden hover:border-cyan-500/40 transition-colors duration-300"
                         >
-                            {/* Index badge */}
+                            {/* Index badge
                             <span className="absolute top-4 left-4 text-xs font-mono text-slate-500 bg-slate-900/80 border border-slate-700/60 rounded-md px-2 py-0.5 tabular-nums">
                                 {String(index + 1).padStart(2, "0")}
-                            </span>
+                            </span> */}
 
                             {/* LinkedIn badge */}
                             {member.linkedin ? (
