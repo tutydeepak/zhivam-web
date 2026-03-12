@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     Search,
     ArrowRight,
@@ -24,6 +24,10 @@ export default function Navbar() {
     const [query, setQuery] = useState("");
     const [pillStyle, setPillStyle] = useState<{ left: number; width: number } | null>(null);
 
+    // Dropdown states
+    const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+    const [mobileDropdownOpen, setMobileDropdownOpen] = useState<string | null>(null);
+
     const searchRef = useRef<HTMLInputElement>(null);
     const searchPanelRef = useRef<HTMLDivElement>(null);
     const mobilePanelRef = useRef<HTMLDivElement>(null);
@@ -34,6 +38,14 @@ export default function Navbar() {
     const navItems = [
         { name: "Home", href: "/" },
         { name: "Solutions", href: "/servicesoffered" },
+        {
+            name: "Analyzer",
+            href: "/zheat",
+            dropdown: [
+                { name: "Heatsink", href: "/zheat" },
+                { name: "Coldplate", href: "/zheat" } // Change the coldplate route here when ready
+            ]
+        },
         { name: "Blog", href: "/blog" },
         { name: "Contact", href: "/contact" },
     ];
@@ -74,6 +86,7 @@ export default function Navbar() {
             if (window.scrollY > 10) {
                 setShowSearch(false);
                 setMobileOpen(false);
+                setDropdownOpen(null);
             }
         };
         window.addEventListener("scroll", handleScroll, { passive: true });
@@ -108,11 +121,25 @@ export default function Navbar() {
             if (e.key === "Escape") {
                 setShowSearch(false);
                 setMobileOpen(false);
+                setDropdownOpen(null);
             }
         };
         window.addEventListener("keydown", handleKey);
         return () => window.removeEventListener("keydown", handleKey);
     }, [showSearch]);
+
+    let dropdownTimeout: NodeJS.Timeout;
+
+    const handleMouseEnter = (name: string) => {
+        clearTimeout(dropdownTimeout);
+        setDropdownOpen(name);
+    };
+
+    const handleMouseLeave = () => {
+        dropdownTimeout = setTimeout(() => {
+            setDropdownOpen(null);
+        }, 150); // slight delay to prevent flickering
+    };
 
     return (
         <>
@@ -170,16 +197,58 @@ export default function Navbar() {
                                 (item.href !== "/" && pathname.startsWith(item.href));
 
                             return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    ref={(el) => { linkRefs.current[item.href] = el; }}
-                                    className="relative px-5 py-2 text-sm rounded-full z-10 transition-colors duration-200"
+                                <div
+                                    key={item.name}
+                                    className="relative group"
+                                    onMouseEnter={() => item.dropdown && handleMouseEnter(item.name)}
+                                    onMouseLeave={() => item.dropdown && handleMouseLeave()}
                                 >
-                                    <span className={isActive ? "text-cyan-400" : "text-slate-400 hover:text-white"}>
-                                        {item.name}
-                                    </span>
-                                </Link>
+                                    <Link
+                                        href={item.dropdown ? "#" : item.href} // Prevent routing on click if it has a dropdown
+                                        ref={(el) => { linkRefs.current[item.href] = el; }}
+                                        className="relative px-5 py-2 text-sm rounded-full z-10 transition-colors duration-200 flex items-center justify-center"
+                                    >
+                                        <span className={isActive ? "text-cyan-400" : "text-slate-400 group-hover:text-white transition-colors"}>
+                                            {item.name}
+                                        </span>
+                                        {/* Dropdown Chevron - Hidden by default, visible on group-hover */}
+                                        {item.dropdown && (
+                                            <ChevronDown
+                                                className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition-all duration-200 ${dropdownOpen === item.name
+                                                        ? "rotate-180 text-cyan-400 opacity-100"
+                                                        : "opacity-0 group-hover:opacity-100 text-slate-400"
+                                                    }`}
+                                            />
+                                        )}
+                                    </Link>
+
+                                    {/* Desktop Dropdown with transparent bridge */}
+                                    <AnimatePresence>
+                                        {item.dropdown && dropdownOpen === item.name && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                                // pt-4 creates the transparent gap while keeping the dropdown hoverable
+                                                className="absolute top-full left-1/2 -translate-x-1/2 pt-4 z-50"
+                                            >
+                                                <div className="w-48 bg-[#0d1520] border border-slate-700/60 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden py-2">
+                                                    {item.dropdown.map((subItem) => (
+                                                        <Link
+                                                            key={subItem.name}
+                                                            href={subItem.href}
+                                                            onClick={() => setDropdownOpen(null)}
+                                                            className="block px-5 py-2.5 text-sm text-slate-400 hover:bg-slate-800/60 hover:text-cyan-400 transition-colors"
+                                                        >
+                                                            {subItem.name}
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
                             );
                         })}
                     </div>
@@ -198,16 +267,6 @@ export default function Navbar() {
                         aria-label="Search"
                     >
                         <Search className="w-[18px] h-[18px]" />
-                    </button>
-
-                    {/* CART */}
-                    <button ref={cartIconRef} className="relative text-slate-400 hover:text-cyan-400 transition-colors" aria-label="Cart">
-                        <ShoppingCart className="w-[18px] h-[18px]" />
-                        {cartCount > 0 && (
-                            <span className="absolute -top-1.5 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-bold text-black">
-                                {cartCount}
-                            </span>
-                        )}
                     </button>
 
                     {/* MOBILE CHEVRON */}
@@ -310,18 +369,58 @@ export default function Navbar() {
                         const isActive =
                             pathname === item.href ||
                             (item.href !== "/" && pathname.startsWith(item.href));
+
                         return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={() => setMobileOpen(false)}
-                                className={`px-4 py-3.5 text-sm rounded-xl transition-colors ${isActive
-                                        ? "text-cyan-400 bg-cyan-500/10"
-                                        : "text-slate-300 hover:bg-slate-700/40 hover:text-white"
-                                    }`}
-                            >
-                                {item.name}
-                            </Link>
+                            <div key={item.name} className="flex flex-col">
+                                {item.dropdown ? (
+                                    <>
+                                        <button
+                                            onClick={() => setMobileDropdownOpen(mobileDropdownOpen === item.name ? null : item.name)}
+                                            className={`flex items-center justify-between px-4 py-3.5 text-sm rounded-xl transition-colors ${isActive
+                                                ? "text-cyan-400 bg-cyan-500/10"
+                                                : "text-slate-300 hover:bg-slate-700/40 hover:text-white"
+                                                }`}
+                                        >
+                                            <span>{item.name}</span>
+                                            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${mobileDropdownOpen === item.name ? "rotate-180" : ""}`} />
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {mobileDropdownOpen === item.name && (
+                                                <motion.div
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: "auto", opacity: 1 }}
+                                                    exit={{ height: 0, opacity: 0 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="flex flex-col ml-4 mt-1 space-y-1 overflow-hidden border-l border-slate-700/50 pl-2 mb-2"
+                                                >
+                                                    {item.dropdown.map((subItem) => (
+                                                        <Link
+                                                            key={subItem.name}
+                                                            href={subItem.href}
+                                                            onClick={() => setMobileOpen(false)}
+                                                            className="px-4 py-2.5 text-sm text-slate-400 hover:text-cyan-400 rounded-lg transition-colors"
+                                                        >
+                                                            {subItem.name}
+                                                        </Link>
+                                                    ))}
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </>
+                                ) : (
+                                    <Link
+                                        href={item.href}
+                                        onClick={() => setMobileOpen(false)}
+                                        className={`px-4 py-3.5 text-sm rounded-xl transition-colors ${isActive
+                                            ? "text-cyan-400 bg-cyan-500/10"
+                                            : "text-slate-300 hover:bg-slate-700/40 hover:text-white"
+                                            }`}
+                                    >
+                                        {item.name}
+                                    </Link>
+                                )}
+                            </div>
                         );
                     })}
                     <Link

@@ -5,33 +5,40 @@ import { motion } from "framer-motion";
 
 const team = [
     {
-        name: "Dr. S. Manikandan",
-        role: "Founder & Chief Technical Officer\n\u00A0",
-        image: "/images/DrSManikandan.webp",
-        linkedin: "https://www.linkedin.com/in/maniiitd/",
-        desc: "Dr. S. Manikandan is a thermal engineering expert with extensive experience in electronic thermal management, liquid cooling, phase change materials, immersion cooling, and battery thermal systems. He has led multiple industry- and government-funded R&D projects, holds granted patents, and actively collaborates with academia and industry on next-generation cooling technologies. His expertise spans design, multiphysics simulation, prototyping, testing, and technology commercialization, forming the technical backbone of Zhivam."
-    },
-    {
         name: "Dr. C. Bharatiraja",
-        role: "Co-Founder & Head – Power Electronics & Energy Systems",
-        image: "/images/DrBharatiraja.webp",
+        role: "Director",
+        image: "/images/Bharatiraja.png",
         linkedin: "https://www.linkedin.com/in/dr-bharatiraja-chokkalingam-44a08b16/",
         desc: "Dr. C. Bharathiraja brings deep expertise in power electronics, energy conversion systems, and system-level integration. His background supports Zhivam's work in cooling of power converters, inverters, battery systems, and renewable energy applications, ensuring thermal solutions are seamlessly aligned with electrical system performance and reliability."
     },
     {
         name: "Dr. K. Anusuya",
-        role: "Co-Founder & Head – Advanced Thermal Systems",
-        image: "/images/DrKAnusuya.webp",
+        role: "Director",
+        image: "/images/Anusuya.png",
         linkedin: "https://www.linkedin.com/in/dr-anusuya-kathirvel-9044a1268/",
         desc: "Dr. K. Anusuya specializes in electronic cooling, battery thermal management, radiative cooling, and energy systems. With strong expertise in CFD and multiphysics modeling, she contributes to the design and optimization of heat sinks, cold plates, and hybrid cooling solutions. Her research-driven approach ensures that Zhivam's solutions are reliable, energy-efficient, and aligned with emerging industry needs."
     },
     {
+        name: "Mrs. K Aruna",
+        role: "Director",
+        image: "/images/Aruna.png",
+        linkedin: "https://www.linkedin.com/in/aruna-pyla-aa1a4925b/",
+        desc: "Mrs. K Aruna drives corporate governance, intellectual property strategy, and regulatory compliance. They ensure our innovative thermal technologies are safeguarded through robust patent portfolios. By managing complex contract negotiations, risk assessment, and strategic partnerships, they provide the essential legal framework required to securely scale our engineering solutions from R&D to global commercialization."
+    },
+    {
+        name: "Dr. S. Manikandan",
+        role: "Founder & Chief Technical Officer",
+        image: "/images/DrSManikandan.webp",
+        linkedin: "https://www.linkedin.com/in/maniiitd/",
+        desc: "Dr. S. Manikandan is a thermal engineering expert with extensive experience in electronic thermal management, liquid cooling, phase change materials, immersion cooling, and battery thermal systems. He has led multiple industry- and government-funded R&D projects, holds granted patents, and actively collaborates with academia and industry on next-generation cooling technologies. His expertise spans design, multiphysics simulation, prototyping, testing, and technology commercialization, forming the technical backbone of Zhivam."
+    },
+    {
         name: "Mr. Pyla Udit Narayan Sai",
-        role: "Co-Founder & Lead Engineer – Electronics & Testing",
+        role: "Co-Founder & Chief Operating Officer",
         image: "/images/Udit.webp",
         linkedin: "https://www.linkedin.com/in/pylauditnarayan7/",
-        desc: "Mr. Pyla Udit Narayan Sai focuses on electronics design, PCB development, testing, and experimental validation. His expertise includes PCB prototyping and assembly, thermal test boards, component testing, and battery characterization (EIS, charge-discharge testing). He plays a key role in translating designs and simulations into validated hardware and test-ready systems."
-    }
+        desc: "Mr. Pyla Udit Narayan Sai bridges advanced thermal R&D with scalable business operations. He leads the end-to-end design of electronic cooling systems, leveraging deep expertise in CFD and multiphysics simulation for rigorous validation. By streamlining supply chains and optimizing manufacturing workflows, he ensures our high-performance thermal technologies are delivered efficiently from concept to commercialization."
+    },
 ];
 
 const LinkedInIcon = () => (
@@ -93,15 +100,15 @@ export default function TeamSection() {
                         <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
                             Our Team
                         </h2>
-                        <p className="text-slate-400 text-sm max-w-sm leading-relaxed md:text-right">
+                        {/* <p className="text-slate-400 text-sm max-w-sm leading-relaxed md:text-right">
                             A multidisciplinary team of researchers, engineers, and innovators driving thermal excellence.
-                        </p>
+                        </p> */}
                     </div>
                     <div className="mt-8 flex flex-wrap gap-6 border-t border-slate-700/50 pt-6">
                         {[
                             { label: "Team Members", value: `${team.length}` },
                             { label: "Domains", value: "4+" },
-                            { label: "Patents Held", value: "Multiple" },
+                            // { label: "Patents Held", value: "Multiple" },
                         ].map((stat) => (
                             <div key={stat.label} className="flex flex-col gap-0.5">
                                 <span className="text-xl font-bold text-white">{stat.value}</span>
@@ -112,7 +119,7 @@ export default function TeamSection() {
                 </motion.div>
 
                 {/* Team grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 items-start">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-5 items-start max-w-6xl mx-auto">
                     {team.map((member, index) => (
                         <motion.div
                             layout
@@ -126,9 +133,9 @@ export default function TeamSection() {
                                 opacity: { duration: 0.5, delay: index * 0.08 },
                                 y: { duration: 0.5, delay: index * 0.08 },
                             }}
-                            className="team-card relative bg-[#0d1520] border border-slate-700/60 rounded-2xl p-6 flex flex-col items-center text-center w-full hover:border-cyan-500/40 transition-colors duration-300"
+                            className={`team-card relative bg-[#0d1520] border border-slate-700/60 rounded-2xl p-6 flex flex-col items-center text-center w-full hover:border-cyan-500/40 transition-colors duration-300 col-span-1 lg:col-span-2 ${index === 3 ? "lg:col-start-2" : ""
+                                }`}
                         >
-                            
 
                             {/* LinkedIn badge */}
                             <a
@@ -167,10 +174,12 @@ export default function TeamSection() {
 
                             {/* Name + role */}
                             <motion.div layout className="w-full flex flex-col items-center mt-5">
-                                <h3 className="text-base font-semibold text-white leading-snug">
+                                <h3 className="text-lg font-bold text-white leading-snug">
                                     {member.name}
                                 </h3>
-                                <p className="text-cyan-400 text-xs mt-1.5 leading-snug whitespace-pre-wrap">{member.role}</p>
+                                <p className="text-cyan-400 text-sm font-semibold mt-1.5 leading-snug whitespace-pre-wrap">
+                                    {member.role}
+                                </p>
                             </motion.div>
 
                             {/* Divider */}

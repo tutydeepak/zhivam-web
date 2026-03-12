@@ -20,15 +20,15 @@ const team = [
     },
     {
         name: "Mirdul",
-        role: "Simulation Engineer",
-        image: "/images/Mirdul.webp",
+        role: "CFD Engineer",
+        image: "/images/Mirdul.png",
         linkedin: "https://www.linkedin.com/in/mirdul-balamurali-b3016a280/",
         desc: "Performs CFD and thermal simulations to analyze temperature distribution in electronic cooling systems, predicts thermal hotspots in IGBT and power modules, validates airflow and liquid cooling performance, and optimizes designs before physical prototyping."
     },
     {
         name: "Thieru Mahan Arjun",
-        role: "Simulation Engineer",
-        image: "/images/Arjun.webp",
+        role: "CFD Engineer",
+        image: "/images/Arjun.png",
         linkedin: "https://www.linkedin.com/in/thieru-mahan-arjun-e-090a39294/",
         desc: "Develops numerical models to evaluate heat dissipation and structural effects in cooling assemblies, studies transient and steady-state behavior, supports design refinement through data-driven insights, and ensures system reliability under peak operating conditions."
     },
@@ -42,7 +42,7 @@ const team = [
     {
         name: "Venu Prasad",
         role: "Thermal Engineer",
-        image: "/images/Venu.webp",
+        image: "/images/Venu.png",
         linkedin: "https://www.linkedin.com/in/venu-prasad-159189361/",
         desc: "Evaluates steady-state and transient heat transfer performance, identifies critical thermal stress points, improves system efficiency through optimized thermal control, and enhances long-term reliability of electronic components."
     },
@@ -50,14 +50,14 @@ const team = [
         name: "Vishruth",
         role: "Manufacturing Engineer",
         image: "/images/Vishruth.webp",
-        linkedin: "",
+        linkedin: "https://www.linkedin.com/in/vishruth-p-a30861287/",
         desc: "Plans and optimizes fabrication processes for cooling assemblies, selects suitable materials such as aluminum or copper alloys, ensures precision machining of micro-channels, and maintains quality control for durable production."
     },
     {
         name: "Rohit",
         role: "Manufacturing Engineer",
-        image: "/images/Rohit.webp",
-        linkedin: "",
+        image: "/images/Rohit.png",
+        linkedin: "https://www.linkedin.com/in/rohit-rajesh-b58a8133b/",
         desc: "Develops scalable manufacturing strategies for thermal systems, bridges the gap between design and fabrication, improves production efficiency through process optimization, and ensures consistent, leak-proof cooling system output."
     }
 ];
@@ -111,15 +111,15 @@ export default function TeamSection() {
                         <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
                             Meet the Engineers
                         </h2>
-                        <p className="text-slate-400 text-sm max-w-sm leading-relaxed md:text-right">
+                        {/* <p className="text-slate-400 text-sm max-w-sm leading-relaxed md:text-right">
                             Specialists in design, simulation, thermal analysis, and manufacturing — building tomorrow's cooling solutions.
-                        </p>
+                        </p> */}
                     </div>
                     <div className="mt-8 flex flex-wrap gap-6 border-t border-slate-700/50 pt-6">
                         {[
                             { label: "Engineers", value: `${team.length}` },
                             { label: "Specializations", value: "4" },
-                            { label: "Focus", value: "Thermal Systems" },
+                            { label: "Focus", value: "Thermal Cooling" },
                         ].map((stat) => (
                             <div key={stat.label} className="flex flex-col gap-0.5">
                                 <span className="text-xl font-bold text-white">{stat.value}</span>

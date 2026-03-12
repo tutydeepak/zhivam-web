@@ -4,14 +4,13 @@ import { useRef, useState } from "react";
 import { motion, useMotionValue, useMotionTemplate } from "framer-motion";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-// import ServicesSection from "./ServicesSection";
 import AboutSection from "./AboutSection";
 import FoundersSection from "./FoundersSection";
 import TeamSection from "./TeamSection";
 import LogoSection from "./LogoSection";
 
 export default function Home() {
-    const textRef = useRef<HTMLHeadingElement>(null);
+    const textRef = useRef<HTMLDivElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const gradientX = useMotionValue(0);
     const gradientY = useMotionValue(0);
@@ -39,7 +38,7 @@ export default function Home() {
         },
     };
 
-    const handleMouseMove = (event: React.MouseEvent<HTMLHeadingElement>) => {
+    const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
         if (textRef.current) {
             const rect = textRef.current.getBoundingClientRect();
             gradientX.set(event.clientX - rect.left);
@@ -69,68 +68,65 @@ export default function Home() {
 
                 {/* Left Side: Text Content */}
                 <motion.div
-                    className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left space-y-6 w-full md:max-w-xl mb-10 md:mb-0 pl-6 md:pl-12 lg:pl-24 pt-24 md:pt-0"
+                    className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left space-y-6 w-full md:max-w-xl mb-10 md:mb-0 pl-2 md:pl-6 lg:pl-12 pt-24 md:pt-0"
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
                 >
-                    {/* Eyebrow label
-                    <motion.div variants={itemVariants} className="flex items-center gap-3">
-                        <span className="h-px w-8 bg-cyan-500" />
-                        <span className="text-xs font-mono uppercase tracking-[0.2em] text-cyan-500">
-                            Thermal Engineering
-                        </span>
-                    </motion.div>
-
-                    <motion.h2
-                        variants={itemVariants}
-                        className="text-3xl md:text-4xl font-normal text-slate-300 -mb-2"
-                    >
-                        Welcome to
-                    </motion.h2> */}
-
-                    {/* Zhivam Text with Spotlight */}
-                    <motion.h1
+                    {/* Zhivam Logo Image with Spotlight */}
+                    <motion.div
                         ref={textRef}
                         variants={itemVariants}
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
                         onMouseMove={handleMouseMove}
-                        className="pt-2 md:pt-3 leading-none cursor-default font-chetta text-7xl md:text-9xl font-medium"
-                        style={{ display: "grid" }}
+                        className="pt-2 md:pt-3 cursor-default"
+                        style={{
+                            display: "grid",
+                            width: "clamp(280px, 38vw, 560px)",
+                            height: "clamp(80px, 11vw, 160px)",
+                        }}
                     >
-                        {/* Base Text */}
-                        <span style={{ gridArea: "1 / 1" }} className="text-white">
-                            Zhivam
-                        </span>
-
-                        {/* Spotlight Gradient Overlay — stacked exactly on top via CSS grid */}
-                        <motion.span
+                        {/* Base Image — fills the container, respects transparent padding */}
+                        <img
+                            src="/images/zhivam-white.png"
+                            alt="Zhivam"
                             style={{
                                 gridArea: "1 / 1",
-                                color: "transparent",
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "contain",
+                                objectPosition: "left center",
+                            }}
+                            className="select-none"
+                            draggable={false}
+                        />
+
+                        {/* Spotlight Gradient Overlay — masked to image shape via CSS mask */}
+                        <motion.div
+                            style={{
+                                gridArea: "1 / 1",
+                                width: "100%",
+                                height: "100%",
                                 backgroundImage: background,
-                                WebkitBackgroundClip: "text",
-                                backgroundClip: "text",
+                                WebkitMaskImage: "url('/images/zhivam-white.png')",
+                                maskImage: "url('/images/zhivam-white.png')",
+                                WebkitMaskSize: "contain",
+                                maskSize: "contain",
+                                WebkitMaskRepeat: "no-repeat",
+                                maskRepeat: "no-repeat",
+                                WebkitMaskPosition: "left center",
+                                maskPosition: "left center",
                             }}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: isHovered ? 1 : 0 }}
                             transition={{ duration: 0.4, ease: "easeInOut" as const }}
                             aria-hidden="true"
-                        >
-                            Zhivam
-                        </motion.span>
-                    </motion.h1>
-
-                    <motion.p
-                        variants={itemVariants}
-                        className="text-base text-slate-400 max-w-sm leading-relaxed"
-                    >
-                        Crafting innovative thermal solutions that bridge the gap between imagination and reality.
-                    </motion.p>
+                        />
+                    </motion.div>
 
                     {/* CTAs */}
-                    <motion.div variants={itemVariants} className="flex items-center gap-4 pt-2">
+                    <motion.div variants={itemVariants} className="flex items-center gap-4 pt-2" style={{ paddingLeft: "clamp(20px, 3vw, 50px)" }}>
                         <Link
                             href="/servicesoffered"
                             className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-sm px-5 py-3 rounded-xl transition-colors duration-200"
@@ -150,16 +146,6 @@ export default function Home() {
                         variants={itemVariants}
                         className="flex flex-wrap gap-6 border-t border-slate-700/50 pt-6 mt-2 w-full"
                     >
-                        {/* {[
-                            { label: "Manufacturing Processes", value: "10+" },
-                            { label: "Min. Lead Time", value: "3 Days" },
-                            { label: "Starting From", value: "₹3,000" },
-                        ].map((stat) => (
-                            <div key={stat.label} className="flex flex-col gap-0.5 text-left">
-                                <span className="text-xl font-bold text-white tabular-nums">{stat.value}</span>
-                                <span className="text-xs text-slate-500 uppercase tracking-wider">{stat.label}</span>
-                            </div>
-                        ))} */}
                     </motion.div>
                 </motion.div>
 

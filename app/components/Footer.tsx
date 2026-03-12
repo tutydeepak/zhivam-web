@@ -88,9 +88,14 @@ export default function Footer() {
                     {/* LOCATION */}
                     <div>
                         <p className="text-xs tracking-widest text-slate-500 mb-4">
-                            LOCATION
+                            BRANCH OFFICE
                         </p>
-                        <p className="text-lg text-slate-200">CHENNAI, TN</p>
+                        <p className="text-sm leading-relaxed">
+                            Second Floor<br />
+                            Center For Electric Mobility<br />
+                            Potheri, SRM Nagar, Kattankulathur 603203<br />
+                            Tamil Nadu, India<br />
+                        </p>
                     </div>
 
                     {/* HQ */}
@@ -100,9 +105,10 @@ export default function Footer() {
                         </p>
 
                         <p className="text-sm leading-relaxed">
-                            Center For Electric Mobility<br />
-                            Second Floor<br />
-                            Chennai, TN<br />
+                            9-65-41/A Sykamvari St<br />
+                            I Floor, Kothapet, Chittinagar<br />
+                            Vijayawada (Urban), Krishna- 520001<br />
+                            Andhra Pradhesh, India<br />
                             Phone: +91 833 385 0202
                         </p>
                     </div>
