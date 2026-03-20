@@ -134,6 +134,17 @@ export default function ZHeat() {
   const [showTempProfile, setShowTempProfile] = useState(false);
   const cvTempRef = useRef<HTMLCanvasElement>(null);
 
+  // Mobile warning banner
+  const [isMobile, setIsMobile] = useState(false);
+  const [continueOnMobile, setContinueOnMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   // Input refs
   const bLRef = useRef<HTMLInputElement>(null);
   const bWRef = useRef<HTMLInputElement>(null);
@@ -1149,6 +1160,48 @@ export default function ZHeat() {
         ::-webkit-scrollbar-thumb:hover { background: rgba(6,182,212,0.4); }
       `}} />
 
+
+      {/* ── MOBILE WARNING ─────────────────────────────────────────────── */}
+      {isMobile && !continueOnMobile && (
+        <div className="fixed inset-0 z-[20000] bg-[#080c14] flex flex-col items-center justify-center p-6 text-center">
+          {/* Icon */}
+          <div className="mb-6 w-20 h-20 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="1.5">
+              <rect x="5" y="2" width="14" height="20" rx="2" />
+              <line x1="12" y1="18" x2="12" y2="18.01" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          {/* Heading */}
+          <h2 className="text-xl font-bold text-white mb-2">Better on Desktop</h2>
+          <p className="text-sm text-slate-400 leading-relaxed max-w-xs mb-8">
+            <strong className="text-cyan-400">ZHeat Analyser</strong> is a complex engineering calculator with detailed inputs, 3D previews, and result tables. For the best experience, open it on a <span className="text-white font-medium">laptop or desktop</span>.
+          </p>
+          {/* Warning badge */}
+          <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-8 max-w-xs text-left">
+            <svg className="shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+            <p className="text-xs text-amber-300 leading-relaxed">Some features like canvas visualisations and input panels may be cramped or partially visible on small screens.</p>
+          </div>
+          {/* Buttons */}
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button
+              onClick={() => setContinueOnMobile(true)}
+              className="w-full py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-sm font-medium hover:bg-slate-700 transition-colors"
+            >
+              Continue anyway
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-600 mt-6">ZHeat · Zhivam Pvt. Ltd.</p>
+        </div>
+      )}
+
+      {/* ── MOBILE STICKY BANNER (shown after continue) ─────────────────── */}
+      {isMobile && continueOnMobile && (
+        <div className="fixed top-[72px] inset-x-0 z-[100] flex items-center gap-3 bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5">
+          <svg className="shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+          <p className="text-xs text-amber-300 flex-1">For best results, use a PC or laptop.</p>
+          <button onClick={() => setContinueOnMobile(false)} className="text-amber-400/60 hover:text-amber-300 transition-colors text-xs underline shrink-0">Switch view</button>
+        </div>
+      )}
       {/* LOADER */}
       {showLoader && (
         <div className="fixed inset-0 bg-[#080c14]/80 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center gap-4">

@@ -210,17 +210,19 @@ export default function Navbar() {
                 initial={{ y: -50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.5, ease: "easeOut" as const }}
-                className="fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-screen-xl flex items-center justify-between px-6 py-2 bg-[#0d1520]/80 backdrop-blur-xl text-white z-50 border border-slate-700/60 rounded-full shadow-[0_4px_32px_rgba(0,0,0,0.4)]"
+                // FIX: reduced px on mobile (px-3 → px-6 on md+), tighter py on mobile
+                className="fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-screen-xl flex items-center justify-between px-3 md:px-6 py-1.5 md:py-2 bg-[#0d1520]/80 backdrop-blur-xl text-white z-50 border border-slate-700/60 rounded-full shadow-[0_4px_32px_rgba(0,0,0,0.4)]"
             >
                 {/* LEFT */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 md:gap-4">
                     <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
                         <Image
                             src="/images/favicon (1).png"
                             alt="Zhivam"
+                            // FIX: smaller logo on mobile (40px → 56px on md+)
                             width={56}
                             height={56}
-                            className="object-contain"
+                            className="object-contain w-9 h-9 md:w-14 md:h-14"
                         />
                     </Link>
 
@@ -300,14 +302,16 @@ export default function Navbar() {
                 </div>
 
                 {/* RIGHT */}
-                <div className="flex items-center gap-3">
+                {/* FIX: tighter gap on mobile */}
+                <div className="flex items-center gap-2 md:gap-3">
                     <button
                         onClick={() => {
                             setShowSearch(!showSearch);
                             setMobileOpen(false);
                             setTimeout(() => searchRef.current?.focus(), 200);
                         }}
-                        className="text-slate-400 hover:text-cyan-400 transition-colors"
+                        // FIX: larger tap target on mobile with p-1
+                        className="p-1 text-slate-400 hover:text-cyan-400 transition-colors"
                         aria-label="Search"
                     >
                         <Search className="w-[18px] h-[18px]" />
@@ -318,7 +322,8 @@ export default function Navbar() {
                             setMobileOpen(!mobileOpen);
                             setShowSearch(false);
                         }}
-                        className="md:hidden text-slate-400 hover:text-white transition-colors"
+                        // FIX: larger tap target on mobile
+                        className="md:hidden p-1 text-slate-400 hover:text-white transition-colors"
                         aria-label="Menu"
                     >
                         <motion.div animate={{ rotate: mobileOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
@@ -326,7 +331,6 @@ export default function Navbar() {
                         </motion.div>
                     </button>
 
-                    {/* To make clickable again, remove 'pointer-events-none' and 'opacity-50' classes */}
                     <Link
                         href="/login"
                         className="hidden md:flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400/60 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 pointer-events-none opacity-50"
@@ -337,6 +341,7 @@ export default function Navbar() {
             </motion.nav>
 
             {/* SEARCH PANEL */}
+            {/* FIX: full-width on mobile with proper top offset matching smaller navbar height */}
             <motion.div
                 ref={searchPanelRef}
                 initial={false}
@@ -345,7 +350,7 @@ export default function Navbar() {
                     opacity: showSearch ? 1 : 0,
                 }}
                 transition={{ duration: 0.2, ease: "easeOut" as const }}
-                className="fixed top-20 md:top-[88px] left-1/2 -translate-x-1/2 w-[95%] md:w-[60%] lg:w-[46%] max-w-2xl overflow-hidden z-40"
+                className="fixed top-[72px] md:top-[88px] left-1/2 -translate-x-1/2 w-[95%] md:w-[60%] lg:w-[46%] max-w-2xl overflow-hidden z-40"
             >
                 <div className="bg-[#0d1520] border border-slate-700/60 rounded-2xl p-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] mt-2">
                     <div className="relative">
@@ -355,7 +360,8 @@ export default function Navbar() {
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search blogs, services..."
-                            className="w-full bg-slate-800/50 border border-slate-700/60 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400/60 transition-colors"
+                            // FIX: text-base prevents iOS auto-zoom on focus (font-size >= 16px)
+                            className="w-full bg-slate-800/50 border border-slate-700/60 rounded-xl pl-10 pr-10 py-2.5 text-base md:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400/60 transition-colors"
                         />
                         {query && (
                             <button
@@ -381,7 +387,8 @@ export default function Navbar() {
                                         setQuery("");
                                         setShowSearch(false);
                                     }}
-                                    className={`flex items-center justify-between px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700/40 hover:text-white transition-colors ${i !== 0 ? "border-t border-slate-700/50" : ""}`}
+                                    // FIX: taller tap targets on mobile (py-3 instead of py-2.5)
+                                    className={`flex items-center justify-between px-4 py-3 md:py-2.5 text-sm text-slate-300 hover:bg-slate-700/40 hover:text-white transition-colors ${i !== 0 ? "border-t border-slate-700/50" : ""}`}
                                 >
                                     <div className="flex items-center gap-3">
                                         {item.type === "blog" ? (
@@ -414,6 +421,7 @@ export default function Navbar() {
             </motion.div>
 
             {/* MOBILE MENU */}
+            {/* FIX: top offset adjusted to match smaller mobile navbar height */}
             <motion.div
                 ref={mobilePanelRef}
                 initial={false}
@@ -422,7 +430,7 @@ export default function Navbar() {
                     opacity: mobileOpen ? 1 : 0,
                 }}
                 transition={{ duration: 0.2, ease: "easeOut" as const }}
-                className="md:hidden fixed top-20 left-1/2 -translate-x-1/2 w-[95%] max-w-screen-xl overflow-hidden bg-[#0d1520] border border-slate-700/60 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] z-40 mt-1"
+                className="md:hidden fixed top-[72px] left-1/2 -translate-x-1/2 w-[95%] max-w-screen-xl overflow-hidden bg-[#0d1520] border border-slate-700/60 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] z-40 mt-1"
             >
                 <div className="flex flex-col divide-y divide-slate-700/50 p-2">
                     {navItems.map((item) => {
@@ -436,7 +444,8 @@ export default function Navbar() {
                                     <>
                                         <button
                                             onClick={() => setMobileDropdownOpen(mobileDropdownOpen === item.name ? null : item.name)}
-                                            className={`flex items-center justify-between px-4 py-3.5 text-sm rounded-xl transition-colors ${isActive
+                                            // FIX: min-h-[48px] ensures accessible tap target size
+                                            className={`flex items-center justify-between px-4 py-3.5 min-h-[48px] text-sm rounded-xl transition-colors ${isActive
                                                 ? "text-cyan-400 bg-cyan-500/10"
                                                 : "text-slate-300 hover:bg-slate-700/40 hover:text-white"
                                                 }`}
@@ -459,7 +468,8 @@ export default function Navbar() {
                                                             key={subItem.name}
                                                             href={subItem.href}
                                                             onClick={() => setMobileOpen(false)}
-                                                            className="px-4 py-2.5 text-sm text-slate-400 hover:text-cyan-400 rounded-lg transition-colors"
+                                                            // FIX: min-h-[44px] for sub-items too
+                                                            className="flex items-center px-4 py-2.5 min-h-[44px] text-sm text-slate-400 hover:text-cyan-400 rounded-lg transition-colors"
                                                         >
                                                             {subItem.name}
                                                         </Link>
@@ -472,7 +482,8 @@ export default function Navbar() {
                                     <Link
                                         href={item.href}
                                         onClick={() => setMobileOpen(false)}
-                                        className={`px-4 py-3.5 text-sm rounded-xl transition-colors ${isActive
+                                        // FIX: min-h-[48px] for accessible tap targets
+                                        className={`flex items-center px-4 py-3.5 min-h-[48px] text-sm rounded-xl transition-colors ${isActive
                                             ? "text-cyan-400 bg-cyan-500/10"
                                             : "text-slate-300 hover:bg-slate-700/40 hover:text-white"
                                             }`}
@@ -486,7 +497,7 @@ export default function Navbar() {
                     <Link
                         href="/login"
                         onClick={() => setMobileOpen(false)}
-                        className="px-4 py-3.5 text-sm text-cyan-400 hover:bg-cyan-500/10 rounded-xl transition-colors flex items-center gap-2"
+                        className="flex items-center px-4 py-3.5 min-h-[48px] text-sm text-cyan-400 hover:bg-cyan-500/10 rounded-xl transition-colors gap-2"
                     >
                         Login <ArrowRight className="w-3.5 h-3.5" />
                     </Link>

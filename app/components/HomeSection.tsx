@@ -52,7 +52,7 @@ export default function Home() {
             {/* ====== Hero Section ====== */}
             <section
                 id="home"
-                className="relative min-h-screen flex flex-col md:flex-row items-start md:items-center text-white overflow-hidden"
+                className="relative min-h-svh flex flex-col justify-center md:flex-row md:items-center text-white overflow-hidden"
             >
                 {/* Background grid texture */}
                 <div
@@ -63,12 +63,15 @@ export default function Home() {
                     }}
                 />
 
-                {/* Ambient glow — left side behind text */}
+                {/* Ambient glow */}
                 <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-0 w-[500px] h-[500px] bg-cyan-500/5 blur-[120px] rounded-full z-0" />
 
                 {/* Left Side: Text Content */}
                 <motion.div
-                    className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left space-y-6 w-full md:max-w-xl mb-10 md:mb-0 pl-2 md:pl-6 lg:pl-12 pt-24 md:pt-0"
+                    // FIX: full-width on mobile, centred text + items on mobile
+                    // FIX: pt-28 on mobile to clear the fixed navbar; removed mb-10 (use pb instead)
+                    // FIX: px-5 on mobile for comfortable reading margins
+                    className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left space-y-6 w-full md:max-w-xl pt-24 pb-8 md:pt-0 md:pb-0 px-5 md:pl-6 lg:pl-12"
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
@@ -80,14 +83,15 @@ export default function Home() {
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
                         onMouseMove={handleMouseMove}
-                        className="pt-2 md:pt-3 cursor-default"
+                        className="pt-2 md:pt-3 cursor-default w-full"
                         style={{
                             display: "grid",
-                            width: "clamp(280px, 38vw, 560px)",
-                            height: "clamp(80px, 11vw, 160px)",
+                            // FIX: clamp min bumped down to 220px so it fits narrow phones (320px wide)
+                            width: "clamp(220px, 38vw, 560px)",
+                            height: "clamp(64px, 11vw, 160px)",
                         }}
                     >
-                        {/* Base Image — fills the container, respects transparent padding */}
+                        {/* Base Image */}
                         <img
                             src="/images/zhivam-white.png"
                             alt="Zhivam"
@@ -96,13 +100,14 @@ export default function Home() {
                                 width: "100%",
                                 height: "100%",
                                 objectFit: "contain",
-                                objectPosition: "left center",
+                                // FIX: centre on mobile, left-align on desktop
+                                objectPosition: "center center",
                             }}
-                            className="select-none"
+                            className="select-none md:[object-position:left_center]"
                             draggable={false}
                         />
 
-                        {/* Spotlight Gradient Overlay — masked to image shape via CSS mask */}
+                        {/* Spotlight Gradient Overlay */}
                         <motion.div
                             style={{
                                 gridArea: "1 / 1",
@@ -115,8 +120,8 @@ export default function Home() {
                                 maskSize: "contain",
                                 WebkitMaskRepeat: "no-repeat",
                                 maskRepeat: "no-repeat",
-                                WebkitMaskPosition: "left center",
-                                maskPosition: "left center",
+                                WebkitMaskPosition: "center center",
+                                maskPosition: "center center",
                             }}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: isHovered ? 1 : 0 }}
@@ -126,16 +131,21 @@ export default function Home() {
                     </motion.div>
 
                     {/* CTAs */}
-                    <motion.div variants={itemVariants} className="flex items-center gap-4 pt-2" style={{ paddingLeft: "clamp(20px, 3vw, 50px)" }}>
+                    <motion.div
+                        variants={itemVariants}
+                        // FIX: remove clamp paddingLeft on mobile (looks off-centre); apply only md+
+                        className="flex items-center gap-3 md:gap-4 pt-2 md:[padding-left:clamp(20px,3vw,50px)]"
+                    >
                         <Link
                             href="/servicesoffered"
-                            className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-sm px-5 py-3 rounded-xl transition-colors duration-200"
+                            // FIX: slightly smaller px/py on very small screens
+                            className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-sm px-4 py-2.5 md:px-5 md:py-3 rounded-xl transition-colors duration-200"
                         >
                             Explore Services <ArrowUpRight className="w-4 h-4" />
                         </Link>
                         <Link
                             href="/contact"
-                            className="text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 px-5 py-3 rounded-xl transition-colors duration-200"
+                            className="text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 px-4 py-2.5 md:px-5 md:py-3 rounded-xl transition-colors duration-200"
                         >
                             Contact Us
                         </Link>
@@ -156,12 +166,12 @@ export default function Home() {
                         alt="Hero"
                         loading="eager"
                         decoding="async"
-                        className="absolute right-0 top-1/2 h-[155%] w-auto -translate-y-1/2 object-contain opacity-80"
+                        className="absolute inset-0 w-full h-full object-cover object-center md:inset-auto md:right-0 md:top-1/2 md:-translate-y-1/2 md:h-[155%] md:w-auto md:object-contain opacity-40 md:opacity-80"
                         onContextMenu={(e) => e.preventDefault()}
                         draggable={false}
                     />
 
-                    {/* Cinematic left fade — matches #080c14 background */}
+                    {/* Cinematic left fade — stronger on mobile, subtle on desktop */}
                     <div
                         className="absolute inset-0 pointer-events-none"
                         style={{
@@ -175,9 +185,14 @@ export default function Home() {
                             )`,
                         }}
                     />
+                    {/* FIX: full dark overlay on mobile so text is always readable */}
+                    <div className="md:hidden absolute inset-0 bg-[#080c14]/60 pointer-events-none" />
 
-                    {/* Bottom fade into next section */}
+                    {/* Bottom fade */}
                     <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#080c14] to-transparent pointer-events-none" />
+
+                    {/* FIX: extra top fade on mobile so navbar area stays dark */}
+                    <div className="md:hidden absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#080c14] to-transparent pointer-events-none" />
                 </div>
             </section>
 
