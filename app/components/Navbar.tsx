@@ -93,7 +93,7 @@ export default function Navbar() {
         ...rdServices.map((s) => ({
             id: s.id,
             title: s.title,
-            href: `/servicesoffered`,
+            href: `/servicesoffered/${s.id}`,
             type: "service" as const,
             category: s.subtitle || "R&D & Engineering",
         })),
