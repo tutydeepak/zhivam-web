@@ -128,6 +128,11 @@ export default function ZHeat() {
   const [taperVal, setTaperVal] = useState("1.00");
   const [kNote, setKNote] = useState("k = 205 W/m.K");
   const [showCustomK, setShowCustomK] = useState(false);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [quoteForm, setQuoteForm] = useState({ name: "", email: "", company: "", phone: "", qty: "1", material: "", finish: "As machined", notes: "" });
+  const [quoteSent, setQuoteSent] = useState(false);
+  const [showTempProfile, setShowTempProfile] = useState(false);
+  const cvTempRef = useRef<HTMLCanvasElement>(null);
 
   // Input refs
   const bLRef = useRef<HTMLInputElement>(null);
@@ -519,6 +524,180 @@ export default function ZHeat() {
     };
     setS(prev => ({ ...prev, res: result }));
     lp();
+  };
+
+  // ─── Temperature Profile Chart ────────────────────────────────────────────
+  const drawTempProfile = useCallback(() => {
+    const cv = cvTempRef.current;
+    if (!cv || !S.res) return;
+    const r = S.res;
+    const ctx = cv.getContext("2d")!;
+    const W = cv.width, H = cv.height;
+    const pad = { top: 32, right: 24, bottom: 44, left: 64 };
+    const cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+
+    // Background
+    ctx.fillStyle = "#080c14"; ctx.fillRect(0, 0, W, H);
+    // Grid
+    ctx.strokeStyle = "rgba(6,182,212,0.06)"; ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 5; i++) {
+      const y = pad.top + (i / 5) * ch;
+      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    }
+    for (let i = 0; i <= 10; i++) {
+      const x = pad.left + (i / 10) * cw;
+      ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + ch); ctx.stroke();
+    }
+
+    const N = 80;
+    const mL = r.mL;
+    const Tbase = r.Tbase, Ta = r.Ta;
+    const points: { x: number; T: number }[] = [];
+    for (let i = 0; i <= N; i++) {
+      const xi = i / N; // 0 = base, 1 = tip
+      const T = Ta + (Tbase - Ta) * Math.cosh(mL * (1 - xi)) / Math.cosh(mL);
+      points.push({ x: xi, T });
+    }
+
+    const Tmin = Math.min(...points.map(p => p.T));
+    const Tmax = Math.max(...points.map(p => p.T));
+    const Trange = Tmax - Tmin || 1;
+
+    // Shaded area under curve
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      const px = pad.left + p.x * cw;
+      const py = pad.top + ch - ((p.T - Tmin) / Trange) * ch;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.lineTo(pad.left + cw, pad.top + ch);
+    ctx.lineTo(pad.left, pad.top + ch);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+    grad.addColorStop(0, "rgba(6,182,212,0.3)");
+    grad.addColorStop(1, "rgba(6,182,212,0.02)");
+    ctx.fillStyle = grad; ctx.fill();
+
+    // Curve line
+    ctx.beginPath();
+    ctx.strokeStyle = "#06b6d4"; ctx.lineWidth = 2.5;
+    points.forEach((p, i) => {
+      const px = pad.left + p.x * cw;
+      const py = pad.top + ch - ((p.T - Tmin) / Trange) * ch;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+
+    // Axes
+    ctx.strokeStyle = "rgba(100,116,139,0.5)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, pad.top); ctx.lineTo(pad.left, pad.top + ch); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.left, pad.top + ch); ctx.lineTo(pad.left + cw, pad.top + ch); ctx.stroke();
+
+    // Axis labels Y
+    ctx.fillStyle = "rgba(100,116,139,0.8)"; ctx.font = "10px monospace"; ctx.textAlign = "right";
+    for (let i = 0; i <= 5; i++) {
+      const T = Tmin + (1 - i / 5) * Trange;
+      ctx.fillText(T.toFixed(1), pad.left - 6, pad.top + (i / 5) * ch + 3.5);
+    }
+    // Axis labels X
+    ctx.textAlign = "center"; ctx.fillStyle = "rgba(100,116,139,0.8)";
+    ["Base", "25%", "50%", "75%", "Tip"].forEach((lbl, i) => {
+      ctx.fillText(lbl, pad.left + (i / 4) * cw, pad.top + ch + 14);
+    });
+
+    // Axis titles
+    ctx.save(); ctx.translate(14, pad.top + ch / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center"; ctx.fillStyle = "rgba(6,182,212,0.7)"; ctx.font = "10px monospace";
+    ctx.fillText("Temperature (°C)", 0, 0); ctx.restore();
+    ctx.textAlign = "center"; ctx.fillStyle = "rgba(6,182,212,0.7)"; ctx.font = "10px monospace";
+    ctx.fillText("Position along Fin", pad.left + cw / 2, H - 6);
+
+    // Markers: base & tip
+    const drawMarker = (xi: number, T: number, lbl: string) => {
+      const px = pad.left + xi * cw;
+      const py = pad.top + ch - ((T - Tmin) / Trange) * ch;
+      ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "#06b6d4"; ctx.fill();
+      ctx.strokeStyle = "#0d1520"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "rgba(6,182,212,0.9)"; ctx.font = "bold 10px monospace";
+      ctx.textAlign = xi < 0.5 ? "left" : "right";
+      ctx.fillText(`${lbl}: ${T.toFixed(1)}°C`, px + (xi < 0.5 ? 8 : -8), py - 8);
+    };
+    drawMarker(0, Tbase, "T_base");
+    drawMarker(1, points[N].T, "T_tip");
+  }, [S.res]);
+
+  // // ─── CSV Export ───────────────────────────────────────────────────────────
+  // const doCSV = () => {
+  //   if (!S.res) { alert("Please run Compute Analysis first."); return; }
+  //   const r = S.res;
+  //   const rows = [
+  //     ["Parameter", "Value", "Unit"],
+  //     ["Fin Type", r.type, ""],
+  //     ["Base Length", r.L_mm, "mm"],
+  //     ["Base Width", r.W_mm, "mm"],
+  //     ["Total Height", r.TH_mm, "mm"],
+  //     ["Base Plate Thickness", r.BH_mm, "mm"],
+  //     ["Fin/Pin Height", r.FH_mm, "mm"],
+  //     ["Fin Thickness / Pin Dia", r.FT_mm, "mm"],
+  //     ["Taper Ratio", r.taper.toFixed(2), "--"],
+  //     ["Number of Fins/Pins", r.Nfins, "--"],
+  //     ["Material", r.matTxt, ""],
+  //     ["Thermal Conductivity k", r.k, "W/m·K"],
+  //     ["Heat Input Q", r.Q, "W"],
+  //     ["Ambient Temperature", r.Ta, "°C"],
+  //     ["Conv. Coefficient h", r.h, "W/m²·K"],
+  //     ["Fin Efficiency eta", r.eta.toFixed(3), "%"],
+  //     ["Overall Surface Efficiency eta0", r.eta0.toFixed(3), "%"],
+  //     ["Fin Effectiveness eps", r.eps.toFixed(4), "--"],
+  //     ["mL parameter", r.mL.toFixed(5), "--"],
+  //     ["m (fin parameter)", r.m.toExponential(3), "1/m"],
+  //     ["Base Temperature Tbase", r.Tbase.toFixed(2), "°C"],
+  //     ["Fin Tip Temperature Ttip", r.Ttip.toFixed(2), "°C"],
+  //     ["Total Conv. Surface Atot", r.Atot.toFixed(3), "cm²"],
+  //     ["Fin Surface Area Afin", r.Afintot.toFixed(3), "cm²"],
+  //     ["Exposed Base Area", r.Abase_exp.toFixed(3), "cm²"],
+  //     ["Total Volume", r.Vtot.toFixed(4), "cm³"],
+  //     ["Convective Resistance Rth", r.R.toFixed(5), "°C/W"],
+  //     ["Base Heat Flux", r.flux.toFixed(4), "W/cm²"],
+  //     ...(r.radEnabled ? [
+  //       ["Emissivity", r.emis.toFixed(3), "--"],
+  //       ["Radiation Sink Temp", r.Tr_C.toFixed(1), "°C"],
+  //       ["Radiation Heat Loss Qrad", r.Qrad.toFixed(3), "W"],
+  //       ["Linearised Rad. Coeff hr", r.hr.toFixed(3), "W/m²·K"],
+  //       ["Effective h_eff", r.heff.toFixed(3), "W/m²·K"],
+  //       ["Effective Resistance Reff", r.R_eff.toFixed(5), "°C/W"],
+  //     ] : []),
+  //   ];
+  //   const csv = rows.map(row => row.map(c => `"${c}"`).join(",")).join("\n");
+  //   dlFile(csv, "text/csv", `ZHeat_Results_${r.type}_${r.L_mm}x${r.W_mm}.csv`);
+  // };
+
+  // ─── Optimization Tips ────────────────────────────────────────────────────
+  const getOptimizationTips = (r: ResultData): { level: "good" | "warn" | "bad"; text: string }[] => {
+    const tips: { level: "good" | "warn" | "bad"; text: string }[] = [];
+
+    if (r.eta < 70) tips.push({ level: "bad", text: `Fin efficiency is low (${r.eta.toFixed(1)}%). Reduce fin height or increase fin thickness/diameter to lower the mL parameter.` });
+    else if (r.eta < 85) tips.push({ level: "warn", text: `Fin efficiency is moderate (${r.eta.toFixed(1)}%). Consider slightly reducing fin height for better material utilisation.` });
+    else tips.push({ level: "good", text: `Fin efficiency is excellent (${r.eta.toFixed(1)}%). Fins are well proportioned for maximum heat transfer per unit mass.` });
+
+    if (r.eps < 2) tips.push({ level: "bad", text: `Fin effectiveness (${r.eps.toFixed(2)}) is below 2. Fins are not adding meaningful enhancement — consider increasing k, or reducing h by switching to forced convection.` });
+    else if (r.eps < 5) tips.push({ level: "warn", text: `Fin effectiveness (${r.eps.toFixed(2)}) is acceptable but modest. Increasing fin height or using a higher-conductivity material could improve this.` });
+    else tips.push({ level: "good", text: `Fin effectiveness (${r.eps.toFixed(2)}) is strong. The fins are significantly augmenting heat transfer over the bare base.` });
+
+    if (r.Tbase > 85) tips.push({ level: "bad", text: `Base temperature (${r.Tbase.toFixed(1)} °C) exceeds typical safe limits. Increase surface area (more fins/pins or longer fins) or increase h.` });
+    else if (r.Tbase > 70) tips.push({ level: "warn", text: `Base temperature (${r.Tbase.toFixed(1)} °C) is elevated. Consider adding more fins or using forced convection to bring it below 70 °C.` });
+    else tips.push({ level: "good", text: `Base temperature (${r.Tbase.toFixed(1)} °C) is within a safe operating range.` });
+
+    if (r.R > 0.5) tips.push({ level: "warn", text: `Thermal resistance Rθ = ${r.R.toFixed(3)} °C/W is relatively high. Increasing total surface area or convective coefficient will reduce it.` });
+    else tips.push({ level: "good", text: `Thermal resistance Rθ = ${r.R.toFixed(3)} °C/W is good. System is effectively managing heat dissipation.` });
+
+    const finFrac = r.Afintot / r.Atot;
+    if (finFrac > 0.97) tips.push({ level: "warn", text: `Fin packing is very dense (${(finFrac * 100).toFixed(0)}% of area is fin). Ensure adequate flow channels for the coolant fluid between fins.` });
+
+    if (r.mL > 3) tips.push({ level: "warn", text: `mL = ${r.mL.toFixed(2)} > 3, indicating diminishing returns on fin length. The added fin length beyond mL ≈ 3 contributes little to heat transfer.` });
+
+    return tips;
   };
 
   // ─── STL Export ───────────────────────────────────────────────────────────
@@ -978,6 +1157,146 @@ export default function ZHeat() {
         </div>
       )}
 
+      {/* ── Quote Request Modal ─────────────────────────────────────────── */}
+      {showQuoteModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+          <div className="bg-[#0d1520] border border-slate-700/60 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/40">
+              <div>
+                <h2 className="text-base font-bold text-white">Request Manufacturing Quote</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Fin geometry auto-filled from your analysis</p>
+              </div>
+              <button onClick={() => setShowQuoteModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700/50 text-slate-400 hover:text-white transition-all">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {quoteSent ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-14 px-6 text-center">
+                <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                </div>
+                <h3 className="text-lg font-bold text-white">Quote Request Submitted!</h3>
+                <p className="text-sm text-slate-400 max-w-xs">Thank you! Our team at Zhivam will review your fin geometry and get back to you within 1–2 business days.</p>
+                <button onClick={() => setShowQuoteModal(false)} className="mt-2 px-6 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm rounded-xl transition-all">
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                {/* Fin geometry summary */}
+                {S.res && (
+                  <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3 text-xs space-y-1">
+                    <div className="text-cyan-400 font-semibold text-[10px] uppercase tracking-wider mb-2">Fin Geometry Summary</div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-slate-300">
+                      <span className="text-slate-500">Type:</span><span>{S.res.type.replace(/-/g, " ")}</span>
+                      <span className="text-slate-500">Base:</span><span>{S.res.L_mm} × {S.res.W_mm} mm</span>
+                      <span className="text-slate-500">Fin Height:</span><span>{S.res.FH_mm} mm</span>
+                      <span className="text-slate-500">No. of Fins:</span><span>{S.res.Nfins}</span>
+                      <span className="text-slate-500">Taper:</span><span>{S.res.taper.toFixed(2)}</span>
+                      <span className="text-slate-500">Material:</span><span>{S.res.matTxt.split(" --")[0]}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Contact fields */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Full Name <span className="text-red-400">*</span></label>
+                    <input type="text" value={quoteForm.name} onChange={e => setQuoteForm(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Dr. John Smith" className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all placeholder-slate-600" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Email <span className="text-red-400">*</span></label>
+                    <input type="email" value={quoteForm.email} onChange={e => setQuoteForm(p => ({ ...p, email: e.target.value }))}
+                      placeholder="you@company.com" className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all placeholder-slate-600" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Company / Institution <span className="text-red-400">*</span></label>
+                    <input type="text" value={quoteForm.company} onChange={e => setQuoteForm(p => ({ ...p, company: e.target.value }))}
+                      placeholder="ACME Corp" className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all placeholder-slate-600" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Phone <span className="text-red-400">*</span></label>
+                    <input type="tel" value={quoteForm.phone} onChange={e => setQuoteForm(p => ({ ...p, phone: e.target.value }))}
+                      placeholder="+91 98765 43210" className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all placeholder-slate-600" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Quantity Required <span className="text-red-400">*</span></label>
+                    <input type="number" value={quoteForm.qty} min="1" onChange={e => setQuoteForm(p => ({ ...p, qty: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Surface Finish <span className="text-red-400">*</span></label>
+                    <select value={quoteForm.finish} onChange={e => setQuoteForm(p => ({ ...p, finish: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all cursor-pointer">
+                      <option>As machined</option>
+                      <option>Anodised (Type II)</option>
+                      <option>Hard anodised (Type III)</option>
+                      <option>Black anodised</option>
+                      <option>Powder coated</option>
+                      <option>Nickel plated</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">Additional Requirements / Notes <span className="text-slate-600 text-[10px]">(optional)</span></label>
+                  <textarea value={quoteForm.notes} onChange={e => setQuoteForm(p => ({ ...p, notes: e.target.value }))}
+                    rows={3} placeholder="Tolerances, special requirements, application details..."
+                    className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all placeholder-slate-600 resize-none" />
+                </div>
+
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setShowQuoteModal(false)}
+                    className="flex-1 px-4 py-2.5 border border-slate-700/60 text-slate-400 hover:text-white hover:border-slate-500 rounded-xl text-sm font-semibold transition-all">
+                    Cancel
+                  </button>
+                  <button onClick={async () => {
+                    if (!quoteForm.name.trim() || !quoteForm.email.trim() || !quoteForm.company.trim() || !quoteForm.phone.trim() || !quoteForm.qty.trim()) {
+                      alert("Please fill in all required fields (marked with *).");
+                      return;
+                    }
+                    try {
+                      const payload = {
+                        id: `Q-${Date.now()}`,
+                        submittedAt: new Date().toISOString(),
+                        contact: { ...quoteForm },
+                        geometry: S.res ? {
+                          type: S.res.type, L_mm: S.res.L_mm, W_mm: S.res.W_mm,
+                          TH_mm: S.res.TH_mm, BH_mm: S.res.BH_mm, FH_mm: S.res.FH_mm,
+                          FT_mm: S.res.FT_mm, PD_mm: S.res.PD_mm, taper: S.res.taper,
+                          Nfins: S.res.Nfins, material: S.res.matTxt, k: S.res.k,
+                        } : null,
+                        thermal: S.res ? {
+                          Q: S.res.Q, h: S.res.h, Ta: S.res.Ta,
+                          eta: S.res.eta, eps: S.res.eps, Tbase: S.res.Tbase,
+                          Ttip: S.res.Ttip, R: S.res.R,
+                        } : null,
+                      };
+                      const res = await fetch("/api/quote", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || "Submission failed");
+                      setQuoteSent(true);
+                    } catch (err: unknown) {
+                      alert("Failed to submit quote. Please try again.\n" + (err instanceof Error ? err.message : ""));
+                    }
+                  }}
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-bold text-sm rounded-xl transition-all shadow-[0_4px_16px_rgba(251,146,60,0.3)]">
+                    Submit Quote Request
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Adding pt-24 here pushes the entire dashboard content down, out from under the floating global navbar */}
       <div className="flex flex-col lg:flex-row min-h-screen pt-24">
 
@@ -1206,7 +1525,16 @@ export default function ZHeat() {
               <button onClick={doPDF} className="flex-1 flex items-center justify-center gap-1.5 bg-transparent border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 rounded-xl px-3 py-2 text-xs font-semibold transition-all">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>PDF
               </button>
+              {/* <button onClick={doCSV} className="flex-1 flex items-center justify-center gap-1.5 bg-transparent border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-xl px-3 py-2 text-xs font-semibold transition-all">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18" /></svg>CSV
+              </button> */}
             </div>
+            {/* Quote Request Button */}
+            <button onClick={() => { if (!S.res) { alert("Please run Compute Analysis first."); return; } setQuoteSent(false); setShowQuoteModal(true); }}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-[0_4px_24px_rgba(251,146,60,0.3)] hover:shadow-[0_6px_32px_rgba(251,146,60,0.45)] hover:-translate-y-0.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              Request Manufacturing Quote
+            </button>
           </div>
         </aside>
 
@@ -1294,6 +1622,42 @@ export default function ZHeat() {
                   </div>
                 </div>
 
+                {/* Temperature Profile */}
+                <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl overflow-hidden">
+                  <button onClick={() => { setShowTempProfile(p => { const next = !p; if (!next) return next; setTimeout(drawTempProfile, 50); return next; }) }
+                  } className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-800/30 transition-all">
+                    <div className="flex items-center gap-2">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                      <span className="text-sm font-semibold text-slate-300">Temperature Profile Along Fin</span>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" className={`transition-transform ${showTempProfile ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9" /></svg>
+                  </button>
+                  {showTempProfile && (
+                    <div className="border-t border-slate-700/40 p-4">
+                      <canvas ref={cvTempRef} width={560} height={220} className="w-full rounded-lg" />
+                      <p className="text-[10px] text-slate-500 mt-2 text-center font-mono">T(x) = T∞ + (T_base − T∞) · cosh[m(L−x)] / cosh(mL) &nbsp;|&nbsp; Insulated tip approximation</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Optimization Suggestions */}
+                <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                    <span className="text-sm font-semibold text-slate-300">Optimization Suggestions</span>
+                  </div>
+                  <div className="space-y-2">
+                    {getOptimizationTips(r).map((tip, i) => (
+                      <div key={i} className={`flex gap-2.5 p-3 rounded-xl text-xs leading-relaxed ${tip.level === "good" ? "bg-green-500/5 border border-green-500/20 text-green-300" : tip.level === "warn" ? "bg-amber-500/5 border border-amber-500/20 text-amber-300" : "bg-red-500/5 border border-red-500/20 text-red-300"}`}>
+                        <span className="mt-0.5 flex-shrink-0">
+                          {tip.level === "good" ? "✓" : tip.level === "warn" ? "⚠" : "✗"}
+                        </span>
+                        <span>{tip.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Detail Table */}
                 {/* Applied overflow-hidden here to ensure table borders don't bleed past the rounded corners */}
                 <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl overflow-hidden">
@@ -1370,7 +1734,7 @@ export default function ZHeat() {
         <div className="space-y-1 text-right">
           <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">Developed by</div>
           <div className="text-white font-semibold text-xs">Dr. S. Manikandan &amp; Dr. K. Anusuya</div>
-          {/* <div className="text-slate-400">Department of Mechanical Engineering, SRM Institute of Science and Technology</div> */}
+          <div className="text-slate-400">© 2026 Zhivam Web. All rights reserved.</div>
           {/* <div className="text-slate-500">Kattankulathur, Tamil Nadu, India</div> */}
         </div>
       </footer>

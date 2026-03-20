@@ -182,13 +182,21 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                         {related.map((s: RdService) => (
                             <Link key={s.id} href={`/servicesoffered/${s.id}`} className="group block">
                                 <div className="relative flex flex-col min-h-[200px] bg-[#0d1520] border border-slate-700/60 rounded-2xl overflow-hidden transition-all duration-300 hover:border-cyan-500/40 hover:shadow-[0_0_32px_rgba(6,182,212,0.08)] p-6">
-                                    <div className="flex items-start justify-between mb-4">
+                                    <div className="absolute inset-0">
+                                        <img
+                                            src={s.imageUrl}
+                                            alt={s.title}
+                                            className="w-full h-full object-cover opacity-10 group-hover:opacity-20 transition-all duration-500"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-[#0d1520] via-[#0d1520]/70 to-[#0d1520]/20" />
+                                    </div>
+                                    <div className="flex items-start justify-between mb-4 relative z-10">
                                         <span className={`text-[10px] font-mono uppercase tracking-widest border rounded-full px-2.5 py-1 ${tagColors[s.tag] || tagColors["Core Service"]}`}>
                                             {s.tag}
                                         </span>
                                         <ArrowUpRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors" />
                                     </div>
-                                    <h3 className="text-white font-semibold text-sm leading-snug group-hover:text-cyan-400 transition-colors mt-auto">
+                                    <h3 className="text-white font-semibold text-sm leading-snug group-hover:text-cyan-400 transition-colors mt-auto relative z-10">
                                         {s.title}
                                     </h3>
                                 </div>

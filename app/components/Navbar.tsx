@@ -276,7 +276,7 @@ export default function Navbar() {
                                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                                 exit={{ opacity: 0, y: 5, scale: 0.95 }}
                                                 transition={{ duration: 0.15, ease: "easeOut" }}
-                                                className="absolute top-full left-1/2 -translate-x-1/2 pt-4 z-50"
+                                                className="absolute top-full left-1/2 -translate-x-1/2 pt-6 z-50"
                                             >
                                                 <div className="w-48 bg-[#0d1520] border border-slate-700/60 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden py-2">
                                                     {item.dropdown.map((subItem) => (
@@ -345,7 +345,7 @@ export default function Navbar() {
                     opacity: showSearch ? 1 : 0,
                 }}
                 transition={{ duration: 0.2, ease: "easeOut" as const }}
-                className="fixed top-20 md:top-[76px] left-1/2 -translate-x-1/2 w-[95%] md:w-[60%] lg:w-[46%] max-w-2xl overflow-hidden z-40"
+                className="fixed top-20 md:top-[88px] left-1/2 -translate-x-1/2 w-[95%] md:w-[60%] lg:w-[46%] max-w-2xl overflow-hidden z-40"
             >
                 <div className="bg-[#0d1520] border border-slate-700/60 rounded-2xl p-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] mt-2">
                     <div className="relative">

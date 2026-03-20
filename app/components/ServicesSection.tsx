@@ -78,30 +78,21 @@ const BentoCard = ({ service, index, variant = "default" }: {
                             <span className={`text-[10px] font-mono uppercase tracking-widest border rounded-full px-2.5 py-1 ${tagColors[service.tag] || tagColors["Core Service"]}`}>
                                 {service.tag}
                             </span>
-                            <span className="w-8 h-8 rounded-full border border-slate-700 flex items-center justify-center text-slate-500 group-hover:border-cyan-500/50 group-hover:text-cyan-400 group-hover:bg-cyan-500/5 transition-all duration-300 shrink-0">
+                            {/* <span className="w-8 h-8 rounded-full border border-slate-700 flex items-center justify-center text-slate-500 group-hover:border-cyan-500/50 group-hover:text-cyan-400 group-hover:bg-cyan-500/5 transition-all duration-300 shrink-0">
                                 <ArrowUpRight className="w-4 h-4" />
-                            </span>
+                            </span> */}
                         </div>
 
                         {/* Bottom */}
                         <div className="mt-auto">
-                            <h3 className="font-bold text-white leading-snug mb-2 text-xl group-hover:text-cyan-400 transition-colors duration-200">
+                            <h3 className="font-bold text-white leading-snug text-2xl group-hover:text-cyan-400 transition-colors duration-200 mb-3">
                                 {service.title}
                             </h3>
-                            <p className="text-slate-400 text-sm leading-relaxed mb-4 line-clamp-2">
-                                {service.description}
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                                {service.capabilities.slice(0, isFeatured ? 3 : 2).map((cap, i) => (
-                                    <span key={i} className="text-[10px] text-slate-400 bg-slate-800/60 border border-slate-700/50 rounded-full px-2.5 py-1 group-hover:border-slate-600 transition-colors">
-                                        {cap.length > 28 ? cap.slice(0, 28) + "..." : cap}
-                                    </span>
-                                ))}
-                                {service.capabilities.length > (isFeatured ? 3 : 2) && (
-                                    <span className="text-[10px] text-cyan-400/70 bg-cyan-500/5 border border-cyan-500/10 rounded-full px-2.5 py-1">
-                                        +{service.capabilities.length - (isFeatured ? 3 : 2)} more
-                                    </span>
-                                )}
+                            <div className="inline-flex items-center gap-2 border border-slate-700/60 group-hover:border-cyan-500/40 group-hover:bg-cyan-500/5 rounded-full px-4 py-2 transition-all duration-300">
+                                <span className="text-xs text-slate-400 group-hover:text-cyan-400 font-mono uppercase tracking-widest transition-colors duration-200">
+                                    Read More
+                                </span>
+                                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-cyan-400 transition-colors duration-200" />
                             </div>
                         </div>
                     </div>

@@ -1,10 +1,11 @@
 import "./globals.css";
 import Navbar from "@/app/components/Navbar";
-import Footer from "@/app/components/Footer";
+import ConditionalFooter from "@/app/components/ConditionalFooter";
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { CartProvider } from "@/app/contexts/CartContext";
 import FloatingContactButton from "@/app/components/FloatingContactButton";
+import SiteShell from "@/app/components/SiteShell";
 
 export const metadata: Metadata = {
     title: "Zhivam Web",
@@ -28,10 +29,7 @@ export default function RootLayout({
         <html lang="en">
             <body className={`${geist.className} bg-black text-white`}>
                 <CartProvider>
-                    <Navbar />
-                    <main>{children}</main>
-                    <Footer />
-                    <FloatingContactButton />
+                    <SiteShell>{children}</SiteShell>
                 </CartProvider>
             </body>
         </html>
