@@ -10,7 +10,7 @@ export const revalidate = 60;
 
 async function getPosts() {
     return await client.fetch(`
-    *[_type == "post"] | order(publishedAt desc) {
+    *[_type == "post" && defined(publishedAt) && publishedAt <= now()] | order(publishedAt desc) {
       _id,
       title,
       "date": publishedAt,

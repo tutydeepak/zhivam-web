@@ -2,7 +2,7 @@ import { client } from './sanity'
 
 export async function getPost(slug: string) {
     return await client.fetch(
-        `*[_type == "post" && slug.current == $slug][0] {
+        `*[_type == "post" && slug.current == $slug && defined(publishedAt) && publishedAt <= now()][0] {
       _id,
       title,
       "date": publishedAt,
@@ -22,6 +22,6 @@ export async function getPost(slug: string) {
 
 export async function getAllSlugs() {
     return await client.fetch(
-        `*[_type == "post"] { "slug": slug.current }`
+        `*[_type == "post" && defined(publishedAt) && publishedAt <= now()] { "slug": slug.current }`
     )
 }
