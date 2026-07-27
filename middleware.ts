@@ -4,15 +4,16 @@ import type { NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const session = request.cookies.get("__session");
 
-  // Protect /admin, /checkout, and /orders
+  // /admin is intentionally excluded here — it has its own independent
+  // password gate (both in the UI and via the x-admin-pass header on its
+  // API routes), so it doesn't need a Firebase session on top of that.
   if (
-    request.nextUrl.pathname.startsWith("/admin") ||
     request.nextUrl.pathname.startsWith("/checkout") ||
     request.nextUrl.pathname.startsWith("/orders")
   ) {
     if (!session) {
-      // Redirect to /auth if no session
-      return NextResponse.redirect(new URL("/auth", request.url));
+      // Redirect to /login if no session
+      return NextResponse.redirect(new URL("/login", request.url));
     }
     // Note: We don't verify the session token explicitly here using firebase-admin
     // because firebase-admin SDK requires Node.js runtime, but middleware runs in Edge.
@@ -24,7 +25,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/admin/:path*",
     "/checkout/:path*",
     "/orders/:path*"
   ],

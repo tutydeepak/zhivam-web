@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         const sheets = google.sheets({ version: "v4", auth });
         const res = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.GOOGLE_SHEET_ID!,
-            range: "Sheet1!A:AJ", // The quote schema ends at AJ; avoid transferring unused columns.
+            range: "Sheet1!A:AX", // widened to include Payment (AG-AJ), Tax Invoice (AK-AO), and Estimate/Proforma (AS-AX) data
         });
 
         const rows = res.data.values || [];
@@ -90,6 +90,12 @@ export async function GET(req: NextRequest) {
                         amount: obj["Payment Amount"] || "",
                         status: obj["Payment Status"] || "",
                         paymentUrl: obj["QR Image URL"] || obj["Payment Link URL"] || obj["Payment Link"] || "",
+                    },
+                    documents: {
+                        piNumber: obj["PI Number"] || "",
+                        docStatus: obj["Doc Status"] || "",
+                        invoiceNumber: obj["Invoice Number"] || "",
+                        invoiceStatus: obj["Invoice Status"] || "",
                     },
                 };
             })

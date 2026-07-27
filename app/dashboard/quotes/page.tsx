@@ -14,6 +14,8 @@ interface Quote {
     thermal: { Q: string; h: string; Ta: string; eta: string; eps: string; Tbase: string; Ttip: string; R: string };
     adminNotes: string;
     payment?: { amount: string; status: string; paymentUrl: string };
+    documents?: { piNumber: string; docStatus: string; invoiceNumber: string; invoiceStatus: string };
+
 }
 
 const STEPS = ["New", "In Progress", "Quoted", "Closed"];
@@ -154,6 +156,90 @@ function PaymentCard({ quote }: { quote: Quote }) {
     );
 }
 
+function DocumentsCard({ quote }: { quote: Quote }) {
+    const d = quote.documents;
+    const hasEP = d?.docStatus?.toLowerCase() === "active" && !!d?.piNumber;
+    const hasTaxInvoice = d?.invoiceStatus?.toLowerCase() === "active" && !!d?.invoiceNumber;
+
+    const [downloadingType, setDownloadingType] = useState<"estimate" | "proforma" | "invoice" | null>(null);
+    const [failedType, setFailedType] = useState<"estimate" | "proforma" | "invoice" | null>(null);
+
+    if (!hasEP && !hasTaxInvoice) return null;
+
+    const download = async (type: "estimate" | "proforma" | "invoice", e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (downloadingType) return; // prevent double-clicks while one is already in flight
+        setFailedType(null);
+        setDownloadingType(type);
+        try {
+            const res = await fetch(`/api/${type}/${quote.id}`, { credentials: "include" });
+            if (!res.ok) throw new Error("Download failed");
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${type}-${quote.id}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            setFailedType(type);
+            setTimeout(() => setFailedType(null), 3000); // auto-clear the error state after a few seconds
+        } finally {
+            setDownloadingType(null);
+        }
+    };
+
+    const buttonLabel = (type: "estimate" | "proforma" | "invoice", baseLabel: string) => {
+        if (downloadingType === type) return "Downloading...";
+        if (failedType === type) return "Failed — Retry";
+        return baseLabel;
+    };
+
+    const btnBase = "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5";
+
+    const Spinner = () => (
+        <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin inline-block" />
+    );
+
+    return (
+        <div className="rounded-xl p-4 border bg-slate-500/5 border-slate-500/20">
+            <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-2">Documents</div>
+            <div className="flex flex-wrap gap-2">
+                {hasEP && (
+                    <>
+                        <button
+                            onClick={(e) => download("estimate", e)}
+                            disabled={downloadingType !== null}
+                            className={`${btnBase} ${failedType === "estimate" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20"}`}
+                        >
+                            {downloadingType === "estimate" && <Spinner />}
+                            {buttonLabel("estimate", "Download Estimate")}
+                        </button>
+                        <button
+                            onClick={(e) => download("proforma", e)}
+                            disabled={downloadingType !== null}
+                            className={`${btnBase} ${failedType === "proforma" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20"}`}
+                        >
+                            {downloadingType === "proforma" && <Spinner />}
+                            {buttonLabel("proforma", "Download Proforma")}
+                        </button>
+                    </>
+                )}
+                {hasTaxInvoice && (
+                    <button
+                        onClick={(e) => download("invoice", e)}
+                        disabled={downloadingType !== null}
+                        className={`${btnBase} ${failedType === "invoice" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20"}`}
+                    >
+                        {downloadingType === "invoice" && <Spinner />}
+                        {buttonLabel("invoice", "Download Tax Invoice")}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
 function QuoteDetailModal({ quote, onClose }: { quote: Quote; onClose: () => void }) {
     const g = quote.geometry, t = quote.thermal, c = quote.contact;
     return (
@@ -185,6 +271,7 @@ function QuoteDetailModal({ quote, onClose }: { quote: Quote; onClose: () => voi
                     </div>
 
                     <PaymentCard quote={quote} />
+                    <DocumentsCard quote={quote} />
 
                     {quote.adminNotes && (
                         <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
@@ -413,6 +500,9 @@ export default function MyQuotesPage() {
                             </div>
                             <div className="mt-3">
                                 <PaymentCard quote={q} />
+                            </div>
+                            <div className="mt-3">
+                                <DocumentsCard quote={q} />
                             </div>
                         </div>
                     ))}

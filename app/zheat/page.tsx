@@ -121,6 +121,16 @@ function adjCol(hex: string, d: number): string {
   return '#' + [clamp(r), clamp(g), clamp(b)].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa",
+  "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala",
+  "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
+  "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+  "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands",
+  "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir",
+  "Ladakh", "Lakshadweep", "Puducherry",
+];
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function ZHeat() {
   const [S, setS] = useState<State>({ fin: "longitudinal", poly: 3, stag: "half", res: null });
@@ -133,7 +143,11 @@ export default function ZHeat() {
   const [kNote, setKNote] = useState("k = 205 W/m.K");
   const [showCustomK, setShowCustomK] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
-  const [quoteForm, setQuoteForm] = useState({ name: "", email: "", company: "", phone: "", qty: "1", material: "", finish: "As machined", notes: "" });
+  const [quoteForm, setQuoteForm] = useState({
+    name: "", email: "", company: "", phone: "", qty: "1",
+    material: "", finish: "As machined", notes: "",
+    billingAddress: "", state: "Andhra Pradesh", gstin: "",
+  });
   const [quoteSent, setQuoteSent] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -305,6 +319,7 @@ export default function ZHeat() {
     setQuoteForm({
       name: user?.displayName || "", email: user?.email || "",
       company: "", phone: "", qty: "1", material: "", finish: "As machined", notes: "",
+      billingAddress: "", state: "Andhra Pradesh", gstin: "",
     });
 
     try { localStorage.removeItem(ZHEAT_DRAFT_KEY); } catch { /* ignore */ }
@@ -1469,13 +1484,42 @@ export default function ZHeat() {
                     className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all placeholder-slate-600 resize-none" />
                 </div>
 
+                <div className="pt-2 border-t border-slate-800/60">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-3">
+                    Billing Details <span className="text-slate-600 normal-case font-normal">(for Estimate/Proforma Invoice)</span>
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1.5">Billing Address <span className="text-red-400">*</span></label>
+                      <textarea value={quoteForm.billingAddress} onChange={e => setQuoteForm(p => ({ ...p, billingAddress: e.target.value }))}
+                        rows={2} placeholder="Company/individual name, door no, street, city, PIN"
+                        className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all placeholder-slate-600 resize-none" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1.5">State <span className="text-red-400">*</span></label>
+                        <select value={quoteForm.state} onChange={e => setQuoteForm(p => ({ ...p, state: e.target.value }))}
+                          className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all cursor-pointer">
+                          {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1.5">GSTIN <span className="text-slate-600 text-[10px]">(optional)</span></label>
+                        <input type="text" value={quoteForm.gstin} onChange={e => setQuoteForm(p => ({ ...p, gstin: e.target.value.toUpperCase() }))}
+                          placeholder="22AAAAA0000A1Z5" maxLength={15}
+                          className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 transition-all placeholder-slate-600 uppercase" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3 pt-1">
                   <button onClick={() => setShowQuoteModal(false)}
                     className="flex-1 px-4 py-2.5 border border-slate-700/60 text-slate-400 hover:text-white hover:border-slate-500 rounded-xl text-sm font-semibold transition-all">
                     Cancel
                   </button>
                   <button onClick={async () => {
-                    if (!quoteForm.name.trim() || !quoteForm.email.trim() || !quoteForm.company.trim() || !quoteForm.phone.trim() || !quoteForm.qty.trim()) {
+                    if (!quoteForm.name.trim() || !quoteForm.email.trim() || !quoteForm.company.trim() || !quoteForm.phone.trim() || !quoteForm.qty.trim() || !quoteForm.billingAddress.trim()) {
                       alert("Please fill in all required fields (marked with *).");
                       return;
                     }

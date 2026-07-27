@@ -40,7 +40,48 @@ interface SheetQuote {
     "Payment Status": string;
     "QR Image URL": string;
     "QR ID": string;
+    "Invoice Number": string;
+    "Invoice Date": string;
+    "Invoice Status": string;
+    "Customer State": string;
+    "Invoice Line Items": string;
+    "Billing Address": string;
+    // "Customer State": string;
+    "Customer GSTIN": string;
+    "PI Number": string;
+    "PI Date": string;
+    "Valid Until": string;
+    "Doc Status": string;
+    "Line Items": string;
+    "Commercial Notes": string;
 }
+
+interface InvoiceLineItem {
+    description: string;
+    hsn: string;
+    quantity: number;
+    unit: string;
+    totalAmount: number;
+}
+
+interface EPLineItem {
+    description: string;
+    hsn: string;
+    quantity: number;
+    unit: string;
+    rate: number;
+    discountPercent: number;
+}
+
+const INDIAN_STATES = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa",
+    "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala",
+    "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
+    "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+    "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands",
+    "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir",
+    "Ladakh", "Lakshadweep", "Puducherry",
+];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ADMIN_PASSWORD = "Zhivam@2026";
@@ -90,6 +131,23 @@ export default function AdminPage() {
     const [priceAmount, setPriceAmount] = useState("");
     const [priceNotes, setPriceNotes] = useState("");
     const [generatingQR, setGeneratingQR] = useState(false);
+
+    // ── Invoice generation state ────────────────────────────────────────────
+    const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+    const [invoiceItems, setInvoiceItems] = useState<InvoiceLineItem[]>([]);
+    const [invoiceCustomerState, setInvoiceCustomerState] = useState("Andhra Pradesh");
+    const [generatingInvoice, setGeneratingInvoice] = useState(false);
+    const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+    const [removingInvoice, setRemovingInvoice] = useState(false);
+    const [showEPModal, setShowEPModal] = useState(false);
+    const [epItems, setEpItems] = useState<EPLineItem[]>([]);
+    const [epCustomerRef, setEpCustomerRef] = useState("");
+    const [epNotes, setEpNotes] = useState({
+        scope: "", delivery: "", warranty: "", freightPacking: "", installation: "", additionalNotes: "",
+    });
+    const [generatingEP, setGeneratingEP] = useState(false);
+    const [downloadingEP, setDownloadingEP] = useState(false);
+    const [removingEP, setRemovingEP] = useState(false);
 
     // ── Load quotes ────────────────────────────────────────────────────────────
     const loadQuotes = useCallback(async () => {
@@ -224,6 +282,214 @@ export default function AdminPage() {
         }
     };
 
+    // ── Invoice: open modal pre-filled from the quote's own data ──────────────
+    const openInvoiceModal = (q: SheetQuote) => {
+        const qty = Number(q["Quantity"]) || 1;
+        const amount = Number(q["Payment Amount"]) || 0;
+        setInvoiceItems([{
+            description: `Custom machined aluminium heat sink — ${q["Fin Type"]?.replace(/-/g, " ") || "fin component"}, ${q["Material"]?.split(" --")[0] || ""}`.trim(),
+            hsn: "76169990",
+            quantity: qty,
+            unit: "Nos",
+            totalAmount: amount,
+        }]);
+        setInvoiceCustomerState(q["Customer State"] || "Andhra Pradesh");
+        setShowInvoiceModal(true);
+    };
+
+    const openEPModal = (q: SheetQuote) => {
+        const qty = Number(q["Quantity"]) || 1;
+        const rate = Number(q["Payment Amount"]) || 0;
+        setEpItems([{
+            description: `Custom-Manufactured Aluminium Heat Sink – ${qty} No., manufactured according to the customer-approved drawing, dimensions and specifications.`,
+            hsn: "84195090",
+            quantity: qty,
+            unit: "Nos",
+            rate,
+            discountPercent: 0,
+        }]);
+        setEpCustomerRef("");
+        setEpNotes({ scope: "", delivery: "", warranty: "", freightPacking: "", installation: "", additionalNotes: "" });
+        setShowEPModal(true);
+    };
+
+    const updateEpItem = (index: number, patch: Partial<EPLineItem>) => {
+        setEpItems(prev => prev.map((item, i) => i === index ? { ...item, ...patch } : item));
+    };
+    const addEpItem = () => {
+        setEpItems(prev => [...prev, { description: "", hsn: "84195090", quantity: 1, unit: "Nos", rate: 0, discountPercent: 0 }]);
+    };
+    const removeEpItem = (index: number) => {
+        setEpItems(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const epGrandTotalPreview = epItems.reduce((sum, item) => {
+        const taxable = item.quantity * item.rate * (1 - item.discountPercent / 100);
+        return sum + taxable * 1.18;
+    }, 0);
+
+    const generateEP = async () => {
+        if (!selected) return;
+        if (epItems.length === 0) { showToast("Add at least one line item"); return; }
+        for (const item of epItems) {
+            if (!item.description.trim() || !item.hsn.trim() || !item.quantity || item.quantity <= 0 || !item.rate || item.rate <= 0) {
+                showToast("Every line item needs a description, HSN, quantity, and rate");
+                return;
+            }
+        }
+        setGeneratingEP(true);
+        try {
+            const res = await fetch("/api/admin/estimate-proforma/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-pass": ADMIN_PASSWORD },
+                body: JSON.stringify({ id: selected["Quote ID"], lineItems: epItems, notes: epNotes, customerRefEnquiry: epCustomerRef }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed");
+            setShowEPModal(false);
+
+            const patch = { "PI Number": data.piNumber, "PI Date": data.piDate, "Valid Until": data.validUntil, "Doc Status": "active" };
+            setSelected(prev => prev?.["Quote ID"] === selected["Quote ID"] ? { ...prev, ...patch } : prev);
+            setQuotes(prev => prev.map(q => q["Quote ID"] === selected["Quote ID"] ? { ...q, ...patch } : q));
+            showToast(`Estimate & Proforma ${data.piNumber} generated ✓`);
+        } catch {
+            showToast("❌ Failed to generate Estimate/Proforma");
+        } finally {
+            setGeneratingEP(false);
+        }
+    };
+
+    const removeEP = async () => {
+        if (!selected) return;
+        if (!window.confirm(`Void PI ${selected["PI Number"]}? The number will not be reused.`)) return;
+        setRemovingEP(true);
+        try {
+            const res = await fetch("/api/admin/estimate-proforma/generate", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", "x-admin-pass": ADMIN_PASSWORD },
+                body: JSON.stringify({ id: selected["Quote ID"] }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed");
+            setSelected(prev => prev?.["Quote ID"] === selected["Quote ID"] ? { ...prev, "Doc Status": "removed" } : prev);
+            setQuotes(prev => prev.map(q => q["Quote ID"] === selected["Quote ID"] ? { ...q, "Doc Status": "removed" } : q));
+            showToast("Estimate/Proforma voided");
+        } catch {
+            showToast("❌ Failed to void documents");
+        } finally {
+            setRemovingEP(false);
+        }
+    };
+
+    const downloadEP = async (q: SheetQuote, type: "estimate" | "proforma") => {
+        setDownloadingEP(true);
+        try {
+            const res = await fetch(`/api/${type}/${q["Quote ID"]}`, { headers: { "x-admin-pass": ADMIN_PASSWORD } });
+            if (!res.ok) throw new Error("Failed");
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${type === "estimate" ? "Estimate" : "Proforma"}-${q["PI Number"]?.replace(/\//g, "-") || q["Quote ID"]}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            showToast(`❌ Failed to download ${type}`);
+        } finally {
+            setDownloadingEP(false);
+        }
+    };
+
+    const updateInvoiceItem = (index: number, patch: Partial<InvoiceLineItem>) => {
+        setInvoiceItems(prev => prev.map((item, i) => i === index ? { ...item, ...patch } : item));
+    };
+
+    const addInvoiceItem = () => {
+        setInvoiceItems(prev => [...prev, { description: "", hsn: "76169990", quantity: 1, unit: "Nos", totalAmount: 0 }]);
+    };
+
+    const removeInvoiceItem = (index: number) => {
+        setInvoiceItems(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const invoiceItemsTotal = invoiceItems.reduce((sum, item) => sum + (Number(item.totalAmount) || 0), 0);
+
+    const generateInvoice = async () => {
+        if (!selected) return;
+        if (invoiceItems.length === 0) { showToast("Add at least one line item"); return; }
+        for (const item of invoiceItems) {
+            if (!item.description.trim() || !item.hsn.trim() || !item.quantity || item.quantity <= 0 || !item.totalAmount || item.totalAmount <= 0) {
+                showToast("Every line item needs a description, HSN, quantity, and amount");
+                return;
+            }
+        }
+        setGeneratingInvoice(true);
+        try {
+            const res = await fetch("/api/admin/invoice/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-pass": ADMIN_PASSWORD },
+                body: JSON.stringify({ id: selected["Quote ID"], customerState: invoiceCustomerState, lineItems: invoiceItems }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed");
+            setShowInvoiceModal(false);
+
+            const patch = { "Invoice Number": data.invoiceNumber, "Invoice Date": data.invoiceDate, "Invoice Status": "active", "Customer State": invoiceCustomerState };
+            setSelected(prev => prev?.["Quote ID"] === selected["Quote ID"] ? { ...prev, ...patch } : prev);
+            setQuotes(prev => prev.map(q => q["Quote ID"] === selected["Quote ID"] ? { ...q, ...patch } : q));
+            showToast(`Invoice ${data.invoiceNumber} generated ✓`);
+        } catch {
+            showToast("❌ Failed to generate invoice");
+        } finally {
+            setGeneratingInvoice(false);
+        }
+    };
+
+    const removeInvoice = async () => {
+        if (!selected) return;
+        if (!window.confirm(`Void invoice ${selected["Invoice Number"]}? The invoice number will not be reused.`)) return;
+        setRemovingInvoice(true);
+        try {
+            const res = await fetch("/api/admin/invoice/generate", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", "x-admin-pass": ADMIN_PASSWORD },
+                body: JSON.stringify({ id: selected["Quote ID"] }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed");
+            setSelected(prev => prev?.["Quote ID"] === selected["Quote ID"] ? { ...prev, "Invoice Status": "removed" } : prev);
+            setQuotes(prev => prev.map(q => q["Quote ID"] === selected["Quote ID"] ? { ...q, "Invoice Status": "removed" } : q));
+            showToast("Invoice voided");
+        } catch {
+            showToast("❌ Failed to void invoice");
+        } finally {
+            setRemovingInvoice(false);
+        }
+    };
+
+    // Downloads via fetch (not a plain <a href>) because the PDF route is
+    // gated by the x-admin-pass HEADER, which anchor tags can't send.
+    const downloadInvoice = async (q: SheetQuote, copy: "recipient" | "supplier" = "recipient") => {
+        setDownloadingInvoice(true);
+        try {
+            const res = await fetch(`/api/invoice/${q["Quote ID"]}?copy=${copy}`, {
+                headers: { "x-admin-pass": ADMIN_PASSWORD },
+            });
+            if (!res.ok) throw new Error("Failed");
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${q["Invoice Number"]?.replace(/\//g, "-") || q["Quote ID"]}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            showToast("❌ Failed to download invoice");
+        } finally {
+            setDownloadingInvoice(false);
+        }
+    };
+
     // ── Export CSV ─────────────────────────────────────────────────────────────
     const exportCSV = () => {
         if (quotes.length === 0) return;
@@ -319,6 +585,153 @@ export default function AdminPage() {
                             <button onClick={generateQR} disabled={generatingQR} className="flex-1 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold disabled:opacity-50">
                                 {generatingQR ? "Creating..." : "Create Payment Link"}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Invoice generation modal */}
+            {showInvoiceModal && selected && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+                    <div className="bg-[#0d1520] border border-slate-700/60 rounded-2xl w-full max-w-2xl p-6 max-h-[85vh] overflow-y-auto">
+                        <h3 className="text-white font-bold text-sm mb-1">Generate Invoice — {selected["Quote ID"]}</h3>
+                        <p className="text-xs text-slate-500 mb-4">Review the pre-filled line item, or add more. This becomes the fixed record on the tax invoice.</p>
+
+                        <label className="block text-xs text-slate-400 mb-1.5">Customer State (place of supply)</label>
+                        <select value={invoiceCustomerState} onChange={e => setInvoiceCustomerState(e.target.value)}
+                            className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 text-sm px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 mb-4">
+                            {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+
+                        <div className="space-y-3">
+                            {invoiceItems.map((item, i) => (
+                                <div key={i} className="bg-slate-900/40 border border-slate-700/50 rounded-xl p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Item {i + 1}</span>
+                                        {invoiceItems.length > 1 && (
+                                            <button onClick={() => removeInvoiceItem(i)} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
+                                        )}
+                                    </div>
+                                    <textarea value={item.description} onChange={e => updateInvoiceItem(i, { description: e.target.value })} rows={2}
+                                        placeholder="Description of goods"
+                                        className="w-full bg-slate-950/60 border border-slate-700/60 text-slate-200 text-xs px-2.5 py-2 rounded-lg outline-none focus:border-cyan-500/60 resize-none" />
+                                    <div className="grid grid-cols-4 gap-2">
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">HSN/SAC</label>
+                                            <input value={item.hsn} onChange={e => updateInvoiceItem(i, { hsn: e.target.value })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">Quantity</label>
+                                            <input type="number" min="1" value={item.quantity} onChange={e => updateInvoiceItem(i, { quantity: Number(e.target.value) })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">Unit</label>
+                                            <input value={item.unit} onChange={e => updateInvoiceItem(i, { unit: e.target.value })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">Amount (₹, incl. GST)</label>
+                                            <input type="number" min="0" value={item.totalAmount} onChange={e => updateInvoiceItem(i, { totalAmount: Number(e.target.value) })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button onClick={addInvoiceItem} className="mt-3 text-xs font-semibold text-cyan-400 hover:text-cyan-300">+ Add another item</button>
+
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-800/60">
+                            <span className="text-xs text-slate-400">Total: <span className="text-white font-bold">₹{invoiceItemsTotal.toLocaleString("en-IN")}</span></span>
+                            <div className="flex gap-2">
+                                <button onClick={() => setShowInvoiceModal(false)} className="px-4 py-2 rounded-lg border border-slate-700/60 text-slate-400 text-xs font-semibold">Cancel</button>
+                                <button onClick={generateInvoice} disabled={generatingInvoice} className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold disabled:opacity-50">
+                                    {generatingInvoice ? "Generating..." : "Generate Invoice"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showEPModal && selected && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
+                    <div className="bg-[#0d1520] border border-slate-700/60 rounded-2xl w-full max-w-2xl p-6 max-h-[85vh] overflow-y-auto">
+                        <h3 className="text-white font-bold text-sm mb-1">Generate Estimate & Proforma — {selected["Quote ID"]}</h3>
+                        <p className="text-xs text-slate-500 mb-4">Both documents share the same PI number and are generated together.</p>
+
+                        <label className="block text-xs text-slate-400 mb-1.5">Customer Ref. / Enquiry <span className="text-slate-600">(optional, e.g. &quot;Email dated Jul 11,2026&quot;)</span></label>
+                        <input value={epCustomerRef} onChange={e => setEpCustomerRef(e.target.value)}
+                            className="w-full bg-slate-900/60 border border-slate-700/60 text-cyan-100 text-sm px-3 py-2 rounded-lg outline-none focus:border-cyan-500/60 mb-4" />
+
+                        <div className="space-y-3">
+                            {epItems.map((item, i) => (
+                                <div key={i} className="bg-slate-900/40 border border-slate-700/50 rounded-xl p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Item {i + 1}</span>
+                                        {epItems.length > 1 && (
+                                            <button onClick={() => removeEpItem(i)} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
+                                        )}
+                                    </div>
+                                    <textarea value={item.description} onChange={e => updateEpItem(i, { description: e.target.value })} rows={2}
+                                        placeholder="Description of goods"
+                                        className="w-full bg-slate-950/60 border border-slate-700/60 text-slate-200 text-xs px-2.5 py-2 rounded-lg outline-none focus:border-cyan-500/60 resize-none" />
+                                    <div className="grid grid-cols-5 gap-2">
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">HSN/SAC</label>
+                                            <input value={item.hsn} onChange={e => updateEpItem(i, { hsn: e.target.value })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">Qty</label>
+                                            <input type="number" min="1" value={item.quantity} onChange={e => updateEpItem(i, { quantity: Number(e.target.value) })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">Unit</label>
+                                            <input value={item.unit} onChange={e => updateEpItem(i, { unit: e.target.value })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">Rate (₹/unit)</label>
+                                            <input type="number" min="0" value={item.rate} onChange={e => updateEpItem(i, { rate: Number(e.target.value) })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-slate-500 mb-1">Disc. %</label>
+                                            <input type="number" min="0" max="100" value={item.discountPercent} onChange={e => updateEpItem(i, { discountPercent: Number(e.target.value) })}
+                                                className="w-full bg-slate-950/60 border border-slate-700/60 text-cyan-100 font-mono text-xs px-2 py-1.5 rounded-lg outline-none focus:border-cyan-500/60" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={addEpItem} className="mt-3 text-xs font-semibold text-cyan-400 hover:text-cyan-300">+ Add another item</button>
+
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                            {([
+                                ["scope", "Project / Scope"], ["delivery", "Delivery Lead Time"],
+                                ["warranty", "Warranty"], ["freightPacking", "Freight / Packing"],
+                                ["installation", "Installation / Commissioning"], ["additionalNotes", "Additional Notes"],
+                            ] as const).map(([key, label]) => (
+                                <div key={key}>
+                                    <label className="block text-[10px] text-slate-500 mb-1">{label} <span className="text-slate-600">(optional)</span></label>
+                                    <input value={epNotes[key]} onChange={e => setEpNotes(prev => ({ ...prev, [key]: e.target.value }))}
+                                        className="w-full bg-slate-950/60 border border-slate-700/60 text-slate-200 text-xs px-2.5 py-2 rounded-lg outline-none focus:border-cyan-500/60" />
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-800/60">
+                            <span className="text-xs text-slate-400">Est. Total (incl. GST): <span className="text-white font-bold">₹{epGrandTotalPreview.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span></span>
+                            <div className="flex gap-2">
+                                <button onClick={() => setShowEPModal(false)} className="px-4 py-2 rounded-lg border border-slate-700/60 text-slate-400 text-xs font-semibold">Cancel</button>
+                                <button onClick={generateEP} disabled={generatingEP} className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold disabled:opacity-50">
+                                    {generatingEP ? "Generating..." : "Generate Both"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -481,6 +894,38 @@ export default function AdminPage() {
                                     </div>
                                 </div>
 
+                                {/* Estimate & Proforma */}
+                                <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
+                                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Estimate & Proforma Invoice</div>
+                                    {q["Doc Status"] === "active" && q["PI Number"] ? (
+                                        <div className="space-y-2">
+                                            <div className="text-xs"><span className="text-slate-500">PI Number:</span> <span className="text-cyan-300 font-mono">{q["PI Number"]}</span></div>
+                                            <div className="text-xs"><span className="text-slate-500">PI Date:</span> <span className="text-slate-300">{q["PI Date"] ? new Date(q["PI Date"]).toLocaleDateString("en-IN") : "—"}</span></div>
+                                            <div className="flex gap-2 flex-wrap mt-2">
+                                                <button onClick={() => downloadEP(q, "estimate")} disabled={downloadingEP}
+                                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-50">
+                                                    {downloadingEP ? "Downloading..." : "Download Estimate"}
+                                                </button>
+                                                <button onClick={() => downloadEP(q, "proforma")} disabled={downloadingEP}
+                                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 disabled:opacity-50">
+                                                    {downloadingEP ? "Downloading..." : "Download Proforma"}
+                                                </button>
+                                                <button onClick={removeEP} disabled={removingEP}
+                                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50">
+                                                    {removingEP ? "Voiding..." : "Void"}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : q["Doc Status"] === "removed" ? (
+                                        <div className="space-y-2">
+                                            <p className="text-xs text-red-400/80">PI {q["PI Number"]} was voided and cannot be reused.</p>
+                                            <button onClick={() => openEPModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate New</button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => openEPModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate Estimate + Proforma</button>
+                                    )}
+                                </div>
+
                                 {/* Payment */}
                                 {(q["Payment Amount"] || st === "quoted") && (
                                     <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
@@ -517,6 +962,40 @@ export default function AdminPage() {
                                             </div>
                                         ) : (
                                             <button onClick={() => { setPriceAmount(""); setPriceNotes(""); setShowPriceModal(true); }} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Create Payment Link</button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Invoice */}
+                                {q["Payment Status"] === "paid" && (
+                                    <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
+                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Invoice</div>
+                                        {q["Invoice Status"] === "active" && q["Invoice Number"] ? (
+                                            <div className="space-y-2">
+                                                <div className="text-xs"><span className="text-slate-500">Number:</span> <span className="text-cyan-300 font-mono">{q["Invoice Number"]}</span></div>
+                                                <div className="text-xs"><span className="text-slate-500">Date:</span> <span className="text-slate-300">{q["Invoice Date"] ? new Date(q["Invoice Date"]).toLocaleDateString("en-IN") : "—"}</span></div>
+                                                <div className="flex gap-2 flex-wrap mt-2">
+                                                    <button onClick={() => downloadInvoice(q, "recipient")} disabled={downloadingInvoice}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-50">
+                                                        {downloadingInvoice ? "Downloading..." : "Download (Customer Copy)"}
+                                                    </button>
+                                                    <button onClick={() => downloadInvoice(q, "supplier")} disabled={downloadingInvoice}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700/50 text-slate-400 hover:text-white disabled:opacity-50">
+                                                        Download (Office Copy)
+                                                    </button>
+                                                    <button onClick={removeInvoice} disabled={removingInvoice}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50">
+                                                        {removingInvoice ? "Voiding..." : "Void Invoice"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : q["Invoice Status"] === "removed" ? (
+                                            <div className="space-y-2">
+                                                <p className="text-xs text-red-400/80">Invoice {q["Invoice Number"]} was voided and cannot be reused. Generate a new one if needed.</p>
+                                                <button onClick={() => openInvoiceModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate New Invoice</button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => openInvoiceModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate Invoice</button>
                                         )}
                                     </div>
                                 )}

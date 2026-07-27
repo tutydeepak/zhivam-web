@@ -47,9 +47,17 @@ async function appendToSheet(quote: QuotePayload) {
                 ]]
             }
         });
+        // Billing header labels live past Payment (AG-AJ) and Tax Invoice (AK-AO)
+        // columns, written separately since they're outside the original 31-col range.
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: sheetId,
+            range: "Sheet1!AP1:AR1",
+            valueInputOption: "RAW",
+            requestBody: { values: [["Billing Address", "Customer State", "Customer GSTIN"]] }
+        });
     }
 
-    // Append the quote row
+    // Append the quote row — original 31 columns (A:AE) only.
     await sheets.spreadsheets.values.append({
         spreadsheetId: sheetId,
         range: "Sheet1!A:AE",
@@ -90,6 +98,24 @@ async function appendToSheet(quote: QuotePayload) {
                 quote.uid || "",
             ]]
         }
+    });
+
+    // Billing fields go ONLY here — AP-AR, past Payment (AG-AJ) and Tax Invoice
+    // (AK-AO) columns written by other routes. Never append these inline above.
+    const rowsRes = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: "Sheet1!A:A" });
+    const newRowIndex = (rowsRes.data.values || []).length; // 1-indexed row number of the row just appended
+
+    await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `Sheet1!AP${newRowIndex}:AR${newRowIndex}`,
+        valueInputOption: "RAW",
+        requestBody: {
+            values: [[
+                quote.contact.billingAddress || "",
+                quote.contact.state || "",
+                quote.contact.gstin || "",
+            ]],
+        },
     });
 }
 
@@ -150,6 +176,7 @@ async function sendNotificationEmail(quote: QuotePayload) {
         <div class="field"><label>Quantity</label><span>× ${quote.contact.qty} units</span></div>
         <div class="field"><label>Surface Finish</label><span>${quote.contact.finish}</span></div>
       </div>
+      ${quote.contact.billingAddress ? `<div style="margin-top:12px"><div class="field"><label>Billing Address</label></div><div class="notes">${quote.contact.billingAddress}${quote.contact.state ? ` · ${quote.contact.state}` : ""}${quote.contact.gstin ? ` · GSTIN: ${quote.contact.gstin}` : ""}</div></div>` : ""}
       ${quote.contact.notes ? `<div style="margin-top:12px"><div class="field"><label>Customer Notes</label></div><div class="notes">${quote.contact.notes}</div></div>` : ""}
     </div>
 
@@ -208,6 +235,7 @@ interface QuotePayload {
     contact: {
         name: string; email: string; company?: string; phone?: string;
         qty: string; finish: string; notes?: string;
+        billingAddress?: string; state?: string; gstin?: string;
     };
     geometry?: {
         type: string; L_mm: number; W_mm: number; TH_mm: number; BH_mm: number;
@@ -270,7 +298,8 @@ export async function GET() {
         const sheets = google.sheets({ version: "v4", auth });
         const res = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.GOOGLE_SHEET_ID!,
-            range: "Sheet1!A:AE",
+            // Widened from A:AO — that cut off the 3 new billing columns (AP-AR).
+            range: "Sheet1!A:AR",
         });
 
         const rows = res.data.values || [];
@@ -316,7 +345,7 @@ export async function PATCH(req: NextRequest) {
 
         const sheetRow = rowIndex + 1; // 1-indexed, row 1 is header
 
-        // Update Status (column C = index 3) and Admin Notes (column AE = index 31)
+        // Update Status (column C) and Admin Notes (column AE)
         if (status !== undefined) {
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
