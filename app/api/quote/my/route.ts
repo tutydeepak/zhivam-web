@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         const sheets = google.sheets({ version: "v4", auth });
         const res = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.GOOGLE_SHEET_ID!,
-            range: "Sheet1!A:AX", // widened to include Payment (AG-AJ), Tax Invoice (AK-AO), and Estimate/Proforma (AS-AX) data
+            range: "Sheet1!A:BD", // widened to include Payment (AG-AJ), Tax Invoice (AK-AO), and Estimate/Proforma (AS-AX) data
         });
 
         const rows = res.data.values || [];
@@ -96,11 +96,21 @@ export async function GET(req: NextRequest) {
                         docStatus: obj["Doc Status"] || "",
                         invoiceNumber: obj["Invoice Number"] || "",
                         invoiceStatus: obj["Invoice Status"] || "",
+                        customerResponse: obj["Customer Response"] || "",
+                        customerResponseNotes: obj["Customer Response Notes"] || "",
                     },
                 };
             })
             .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
+        console.log(
+            myQuotes.map(q => ({
+                id: q.id,
+                status: q.status,
+                pi: q.documents.piNumber,
+                docStatus: q.documents.docStatus,
+            }))
+        );
         return NextResponse.json({ quotes: myQuotes });
     } catch (err: unknown) {
         console.error("My quotes error:", err);

@@ -111,11 +111,16 @@ export async function POST(req: NextRequest) {
         }
 
         // 1. Mark payment as paid
-        await sheets.spreadsheets.values.update({
+        // 1. Mark payment as paid AND move to In Production automatically
+        await sheets.spreadsheets.values.batchUpdate({
             spreadsheetId: sheetId,
-            range: `Sheet1!${COL_PAYMENT_STATUS}${sheetRow}`,
-            valueInputOption: "RAW",
-            requestBody: { values: [["paid"]] },
+            requestBody: {
+                valueInputOption: "RAW",
+                data: [
+                    { range: `Sheet1!${COL_PAYMENT_STATUS}${sheetRow}`, values: [["paid"]] },
+                    { range: `Sheet1!C${sheetRow}`, values: [["in-production"]] },
+                ],
+            },
         });
 
         // 2. Auto-generate Tax Invoice, skipping if one is already active (idempotency).

@@ -142,7 +142,7 @@ export { NAVY, TEAL, BORDER, CREAM };
 export function EstimateProformaBody({ data }: { data: EstimateProformaData }) {
     const { rows, intraState, taxableSubtotal, cgst, sgst, igst, roundOff, grandTotal } = computeTotals(data);
     const isProforma = data.docType === "proforma";
-    const titleText = isProforma ? "PROFORMA INVOICE" : "ESTIMATE INVOICE";
+    const titleText = isProforma ? "PROFORMA INVOICE" : "ESTIMATE";
 
     return (
         <View style={epStyles.outerBorder}>

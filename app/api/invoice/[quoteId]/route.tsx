@@ -13,6 +13,8 @@ import { google } from "googleapis";
 import { renderToStream } from "@react-pdf/renderer";
 import { adminAuth } from "@/lib/firebase-admin";
 import { InvoiceDocument, InvoiceData } from "@/lib/invoice/InvoiceDocument";
+import { loadLogoBase64 } from "@/lib/invoice/loadLogo";
+import { loadSealBase64 } from "@/lib/invoice/loadSeal";
 
 function sheetsClient() {
     const auth = new google.auth.JWT({
@@ -96,6 +98,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ quoteId
             invoiceDate: obj["Invoice Date"] || new Date().toISOString(),
             copyLabel: requestedCopy,
             quoteId,
+            logoBase64: loadLogoBase64(),
+            sealBase64: loadSealBase64(),
             customer: {
                 name: obj["Name"] || "",
                 company: obj["Company"] || "",

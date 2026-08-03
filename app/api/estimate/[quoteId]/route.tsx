@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ quoteId
         const sheets = sheetsClient();
         const res = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.GOOGLE_SHEET_ID!,
-            range: "Sheet1!A:AX",
+            range: "Sheet1!A:BD",
         });
         const rows = res.data.values || [];
         if (rows.length < 2) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -8,7 +8,7 @@ export default function LogoSection() {
         "/images/logos/iitd.png",
         "/images/logos/ihfc.png",
         "/images/logos/cem.png",
-        // "/images/logos/logo5.png",
+        "/images/logos/nvidia.png",
     ];
 
     return (
@@ -34,7 +34,7 @@ export default function LogoSection() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.6, ease: "easeOut" as const }}
-                    className="mb-10 md:mb-14"
+                    className="mb-10 md:mb-14 text-center"
                 >
                     <div className="flex items-center gap-3 mb-4">
                         <span className="h-px w-8 bg-cyan-500" />
@@ -42,11 +42,12 @@ export default function LogoSection() {
                             Partners & Collaborators
                         </span>
                     </div>
-                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                    <div className="flex flex-col items-start gap-3">
                         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
                             Trusted & Collaborated With
                         </h2>
-                        <p className="text-slate-400 text-sm max-w-sm leading-relaxed md:text-right">
+
+                        <p className="text-slate-400 text-sm max-w-xl leading-relaxed text-left">
                             Organizations and institutions we proudly work with.
                         </p>
                     </div>
@@ -63,8 +64,15 @@ export default function LogoSection() {
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: "-40px" }}
-                            transition={{ duration: 0.5, delay: index * 0.08, ease: "easeOut" as const }}
-                            className="group relative bg-[#0d1520] hover:bg-cyan-500/10 border border-slate-700/60 rounded-2xl p-3 sm:p-4 flex items-center justify-center hover:border-cyan-500/60 transition-all duration-300 h-24 sm:h-28"
+                            transition={{
+                                duration: 0.5,
+                                delay: index * 0.08,
+                                ease: "easeOut" as const,
+                            }}
+                            className={`group relative bg-[#0d1520] hover:bg-cyan-500/10 border border-slate-700/60 rounded-2xl p-3 sm:p-4 flex items-center justify-center hover:border-cyan-500/60 transition-all duration-300 h-24 sm:h-28 ${index === 4
+                                ? "md:col-span-4 md:w-[25%] md:justify-self-center"
+                                : ""
+                                }`}
                         >
                             <img
                                 src={logo}

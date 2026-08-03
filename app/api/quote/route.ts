@@ -298,8 +298,8 @@ export async function GET() {
         const sheets = google.sheets({ version: "v4", auth });
         const res = await sheets.spreadsheets.values.get({
             spreadsheetId: process.env.GOOGLE_SHEET_ID!,
-            // Widened from A:AO — that cut off the 3 new billing columns (AP-AR).
-            range: "Sheet1!A:AR",
+            // Widened from A:AR — that cut off PI Number/Doc Status/Line Items/Commercial Notes (AS-AX).
+            range: "Sheet1!A:BD",
         });
 
         const rows = res.data.values || [];

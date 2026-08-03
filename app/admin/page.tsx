@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type QuoteStatus = "new" | "in-progress" | "quoted" | "closed";
+type QuoteStatus = "new" | "in-progress" | "awaiting-response" | "quoted" | "in-production" | "closed";
 
 interface SheetQuote {
     "Quote ID": string;
@@ -54,6 +54,10 @@ interface SheetQuote {
     "Doc Status": string;
     "Line Items": string;
     "Commercial Notes": string;
+    "Customer Response": string;
+    "Customer Response Notes": string;
+    "Customer Response At": string;
+    "Response History": string; // ← ADD
 }
 
 interface InvoiceLineItem {
@@ -89,8 +93,10 @@ const ADMIN_PASSWORD = "Zhivam@2026";
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; bg: string; text: string; dot: string }> = {
     "new": { label: "New", bg: "bg-cyan-500/10", text: "text-cyan-400", dot: "bg-cyan-400" },
     "in-progress": { label: "In Progress", bg: "bg-amber-500/10", text: "text-amber-400", dot: "bg-amber-400" },
-    "quoted": { label: "Quoted", bg: "bg-green-500/10", text: "text-green-400", dot: "bg-green-400" },
-    "closed": { label: "Closed", bg: "bg-slate-500/10", text: "text-slate-400", dot: "bg-slate-500" },
+    "awaiting-response": { label: "Awaiting Response", bg: "bg-purple-500/10", text: "text-purple-400", dot: "bg-purple-400" },
+    "quoted": { label: "Quoted", bg: "bg-sky-500/10", text: "text-sky-400", dot: "bg-sky-400" },
+    "in-production": { label: "In Production", bg: "bg-orange-600/10", text: "text-orange-500", dot: "bg-orange-500" },
+    "closed": { label: "Closed", bg: "bg-green-500/10", text: "text-green-400", dot: "bg-green-500" },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -100,6 +106,25 @@ function fmt(iso: string) {
         return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
             + " · " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
     } catch { return iso; }
+}
+
+function epTotalFromQuote(q: SheetQuote): string {
+    try {
+        const items = JSON.parse((q as unknown as Record<string, string>)["Line Items"] || "[]");
+        if (!Array.isArray(items) || items.length === 0) return "";
+        const total = items.reduce((sum: number, item: { quantity?: number; rate?: number; discountPercent?: number }) => {
+            const taxable = (item.quantity || 0) * (item.rate || 0) * (1 - (item.discountPercent || 0) / 100);
+            return sum + taxable * 1.18;
+        }, 0);
+        return total > 0 ? String(Math.round(total)) : "";
+    } catch { return ""; }
+}
+
+function renderHistory(raw: string) {
+    try {
+        const parsed = JSON.parse(raw || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
 }
 
 function timeAgo(iso: string) {
@@ -145,25 +170,27 @@ export default function AdminPage() {
     const [epNotes, setEpNotes] = useState({
         scope: "", delivery: "", warranty: "", freightPacking: "", installation: "", additionalNotes: "",
     });
+    const [epIsRevision, setEpIsRevision] = useState(false);
     const [generatingEP, setGeneratingEP] = useState(false);
     const [downloadingEP, setDownloadingEP] = useState(false);
     const [removingEP, setRemovingEP] = useState(false);
 
     // ── Load quotes ────────────────────────────────────────────────────────────
-    const loadQuotes = useCallback(async () => {
+    const loadQuotes = useCallback(async (): Promise<SheetQuote[]> => {
         setLoading(true);
         setError("");
         try {
             const res = await fetch("/api/quote");
             const data = await res.json();
             if (data.error) throw new Error(data.error);
-            // Sort newest first
             const sorted = [...(data.quotes || [])].sort((a, b) =>
                 new Date(b["Submitted At"]).getTime() - new Date(a["Submitted At"]).getTime()
             );
             setQuotes(sorted);
+            return sorted;
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : "Failed to load quotes.");
+            return [];
         } finally {
             setLoading(false);
         }
@@ -262,11 +289,13 @@ export default function AdminPage() {
                 body: JSON.stringify({ id: selected["Quote ID"], paymentStatus: paid ? "paid" : "pending" }),
             });
 
-            setSelected(prev => prev?.["Quote ID"] === selected["Quote ID"]
-                ? { ...prev, "Payment Status": paid ? "paid" : "pending" }
-                : prev
-            );
-            showToast(paid ? "Marked as paid ✓" : "Marked as pending");
+            const patch = {
+                "Payment Status": paid ? "paid" : "pending",
+                ...(paid ? { "Status": "in-production" } : {}),
+            };
+            setSelected(prev => prev?.["Quote ID"] === selected["Quote ID"] ? { ...prev, ...patch } : prev);
+            setQuotes(prev => prev.map(q => q["Quote ID"] === selected["Quote ID"] ? { ...q, ...patch } : q));
+            showToast(paid ? "Marked as paid — moved to In Production ✓" : "Marked as pending");
         } catch {
             showToast("❌ Update failed");
         }
@@ -310,6 +339,30 @@ export default function AdminPage() {
         }]);
         setEpCustomerRef("");
         setEpNotes({ scope: "", delivery: "", warranty: "", freightPacking: "", installation: "", additionalNotes: "" });
+        setEpIsRevision(false); // ← ADD
+        setShowEPModal(true);
+    };
+
+    const openEPModalForRevision = (q: SheetQuote) => {
+        try {
+            const items = JSON.parse((q as unknown as Record<string, string>)["Line Items"] || "[]");
+            const savedNotes = JSON.parse((q as unknown as Record<string, string>)["Commercial Notes"] || "{}");
+            setEpItems(Array.isArray(items) && items.length > 0 ? items : [
+                { description: "", hsn: "84195090", quantity: 1, unit: "Nos", rate: 0, discountPercent: 0 },
+            ]);
+            setEpCustomerRef(savedNotes.customerRefEnquiry || "");
+            setEpNotes({
+                scope: savedNotes.scope || "", delivery: savedNotes.delivery || "",
+                warranty: savedNotes.warranty || "", freightPacking: savedNotes.freightPacking || "",
+                installation: savedNotes.installation || "", additionalNotes: savedNotes.additionalNotes || "",
+            });
+        } catch {
+            // Fall back to a blank item if the stored JSON is malformed.
+            setEpItems([{ description: "", hsn: "84195090", quantity: 1, unit: "Nos", rate: 0, discountPercent: 0 }]);
+            setEpCustomerRef("");
+            setEpNotes({ scope: "", delivery: "", warranty: "", freightPacking: "", installation: "", additionalNotes: "" });
+        }
+        setEpIsRevision(true);
         setShowEPModal(true);
     };
 
@@ -342,18 +395,29 @@ export default function AdminPage() {
             const res = await fetch("/api/admin/estimate-proforma/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-admin-pass": ADMIN_PASSWORD },
-                body: JSON.stringify({ id: selected["Quote ID"], lineItems: epItems, notes: epNotes, customerRefEnquiry: epCustomerRef }),
+                body: JSON.stringify({
+                    id: selected["Quote ID"], lineItems: epItems, notes: epNotes,
+                    customerRefEnquiry: epCustomerRef, isRevision: epIsRevision, // ← ADD isRevision
+                }),
             });
             const data = await res.json();
             if (!data.success) throw new Error(data.error || "Failed");
             setShowEPModal(false);
+            showToast(epIsRevision ? `Revised ${data.piNumber} ✓` : `Estimate & Proforma ${data.piNumber} generated ✓`);
 
-            const patch = { "PI Number": data.piNumber, "PI Date": data.piDate, "Valid Until": data.validUntil, "Doc Status": "active" };
-            setSelected(prev => prev?.["Quote ID"] === selected["Quote ID"] ? { ...prev, ...patch } : prev);
-            setQuotes(prev => prev.map(q => q["Quote ID"] === selected["Quote ID"] ? { ...q, ...patch } : q));
-            showToast(`Estimate & Proforma ${data.piNumber} generated ✓`);
+            // Re-fetch from Sheets instead of patching locally — the server
+            // just wrote Response History JSON we don't have on the client,
+            // so pulling the real row avoids the panel showing stale data
+            // until a manual refresh.
+            const refreshed = await loadQuotes();
+            const updated = refreshed.find(qq => qq["Quote ID"] === selected["Quote ID"]);
+            if (updated) setSelected(updated);
+            // Local patch above can't include the freshly-written Response
+            // History JSON (the backend doesn't return it), so pull the
+            // real row from Sheets to pick that up correctly.
+            loadQuotes();
         } catch {
-            showToast("❌ Failed to generate Estimate/Proforma");
+            showToast(epIsRevision ? "❌ Failed to revise quote" : "❌ Failed to generate Estimate/Proforma");
         } finally {
             setGeneratingEP(false);
         }
@@ -659,7 +723,9 @@ export default function AdminPage() {
             {showEPModal && selected && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4">
                     <div className="bg-[#0d1520] border border-slate-700/60 rounded-2xl w-full max-w-2xl p-6 max-h-[85vh] overflow-y-auto">
-                        <h3 className="text-white font-bold text-sm mb-1">Generate Estimate & Proforma — {selected["Quote ID"]}</h3>
+                        <h3 className="text-white font-bold text-sm mb-1">
+                            {epIsRevision ? `Revise Quote — ${selected["Quote ID"]}` : `Generate Estimate & Proforma — ${selected["Quote ID"]}`}
+                        </h3>
                         <p className="text-xs text-slate-500 mb-4">Both documents share the same PI number and are generated together.</p>
 
                         <label className="block text-xs text-slate-400 mb-1.5">Customer Ref. / Enquiry <span className="text-slate-600">(optional, e.g. &quot;Email dated Jul 11,2026&quot;)</span></label>
@@ -779,8 +845,8 @@ export default function AdminPage() {
                 <div className="w-full md:w-[380px] flex-shrink-0 border-r border-slate-700/40 flex flex-col">
 
                     {/* Status filter tabs */}
-                    <div className="grid grid-cols-4 border-b border-slate-700/40 flex-shrink-0">
-                        {(["all", "new", "in-progress", "quoted"] as const).map(s => (
+                    <div className="grid grid-cols-6 border-b border-slate-700/40 flex-shrink-0">
+                        {(["all", "new", "in-progress", "awaiting-response", "quoted", "in-production"] as const).map(s => (
                             <button key={s} onClick={() => setFilterStatus(s)}
                                 className={`flex flex-col items-center py-3 border-b-2 transition-all ${filterStatus === s ? "border-cyan-500 bg-cyan-500/5" : "border-transparent hover:bg-slate-800/30"}`}>
                                 <span className={`font-bold text-lg leading-none ${filterStatus === s ? "text-white" : "text-slate-400"}`}>{counts[s] || 0}</span>
@@ -862,240 +928,313 @@ export default function AdminPage() {
 
                         const hasGeometry = q["Fin Type"] || q["Base L (mm)"];
                         const hasThermal = q["Heat Input Q (W)"] || q["Fin Efficiency η (%)"];
+                        const paymentUrl = q["QR Image URL"] || (q as unknown as Record<string, string>)["Payment Link URL"] || (q as unknown as Record<string, string>)["Payment Link"] || "";
 
                         return (
-                            <div className="p-6 space-y-5 max-w-3xl">
+                            <div className="p-6 flex gap-5 items-start">
+                                <div className="space-y-5 max-w-3xl flex-1 min-w-0">
 
-                                {/* Header */}
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                            <h2 className="text-lg font-bold text-white">{q["Name"]}</h2>
-                                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border border-current/20 ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
-                                        </div>
-                                        <div className="text-xs text-slate-400 font-mono">{q["Quote ID"]} · {fmt(q["Submitted At"])}</div>
-                                    </div>
-                                </div>
-
-                                {/* Status */}
-                                <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
-                                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Update Status</div>
-                                    <div className="flex gap-2 flex-wrap">
-                                        {(["new", "in-progress", "quoted", "closed"] as QuoteStatus[]).map(s => {
-                                            const c = STATUS_CONFIG[s];
-                                            return (
-                                                <button key={s} disabled={saving} onClick={() => handleStatusClick(q, s)}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${st === s ? `${c.bg} ${c.text} border-current/30` : "bg-transparent border-slate-700/50 text-slate-500 hover:border-slate-500 hover:text-slate-300"}`}>
-                                                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${c.dot} mr-1.5`} />
-                                                    {c.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Estimate & Proforma */}
-                                <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
-                                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Estimate & Proforma Invoice</div>
-                                    {q["Doc Status"] === "active" && q["PI Number"] ? (
-                                        <div className="space-y-2">
-                                            <div className="text-xs"><span className="text-slate-500">PI Number:</span> <span className="text-cyan-300 font-mono">{q["PI Number"]}</span></div>
-                                            <div className="text-xs"><span className="text-slate-500">PI Date:</span> <span className="text-slate-300">{q["PI Date"] ? new Date(q["PI Date"]).toLocaleDateString("en-IN") : "—"}</span></div>
-                                            <div className="flex gap-2 flex-wrap mt-2">
-                                                <button onClick={() => downloadEP(q, "estimate")} disabled={downloadingEP}
-                                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-50">
-                                                    {downloadingEP ? "Downloading..." : "Download Estimate"}
-                                                </button>
-                                                <button onClick={() => downloadEP(q, "proforma")} disabled={downloadingEP}
-                                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 disabled:opacity-50">
-                                                    {downloadingEP ? "Downloading..." : "Download Proforma"}
-                                                </button>
-                                                <button onClick={removeEP} disabled={removingEP}
-                                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50">
-                                                    {removingEP ? "Voiding..." : "Void"}
-                                                </button>
+                                    {/* Header */}
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <h2 className="text-lg font-bold text-white">{q["Name"]}</h2>
+                                                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border border-current/20 ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
                                             </div>
+                                            <div className="text-xs text-slate-400 font-mono">{q["Quote ID"]} · {fmt(q["Submitted At"])}</div>
                                         </div>
-                                    ) : q["Doc Status"] === "removed" ? (
-                                        <div className="space-y-2">
-                                            <p className="text-xs text-red-400/80">PI {q["PI Number"]} was voided and cannot be reused.</p>
-                                            <button onClick={() => openEPModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate New</button>
-                                        </div>
-                                    ) : (
-                                        <button onClick={() => openEPModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate Estimate + Proforma</button>
-                                    )}
-                                </div>
+                                    </div>
 
-                                {/* Payment */}
-                                {(q["Payment Amount"] || st === "quoted") && (
+                                    {/* Status */}
                                     <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
-                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Payment</div>
-                                        {q["QR Image URL"] ? (
-                                            <div className="flex flex-col gap-4">
-                                                <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/60 rounded-lg px-3 py-2">
-                                                    <span className="flex-1 text-xs font-mono text-cyan-300 truncate">{q["QR Image URL"]}</span>
-                                                    <button
-                                                        onClick={() => copyPaymentLink(q["QR Image URL"])}
-                                                        className="shrink-0 px-2.5 py-1 rounded-md text-[10px] font-semibold border border-slate-700/60 text-slate-400 hover:text-white hover:border-slate-500 transition-all"
-                                                    >
-                                                        Copy
+                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Update Status</div>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {(["new", "in-progress", "awaiting-response", "quoted", "in-production", "closed"] as QuoteStatus[]).map(s => {
+                                                const c = STATUS_CONFIG[s];
+                                                return (
+                                                    <button key={s} disabled={saving} onClick={() => handleStatusClick(q, s)}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${st === s ? `${c.bg} ${c.text} border-current/30` : "bg-transparent border-slate-700/50 text-slate-500 hover:border-slate-500 hover:text-slate-300"}`}>
+                                                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${c.dot} mr-1.5`} />
+                                                        {c.label}
                                                     </button>
-                                                    <a href={q["QR Image URL"]} target="_blank" rel="noopener noreferrer" className="shrink-0 px-2.5 py-1 rounded-md text-[10px] font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-all">Open</a>
-                                                </div>
-                                                <div className="text-xs space-y-1.5">
-                                                    <div><span className="text-slate-500">Amount:</span> <span className="text-cyan-300 font-mono">₹{q["Payment Amount"]}</span></div>
-                                                    <div>
-                                                        <span className="text-slate-500">Status:</span>{" "}
-                                                        <span className={q["Payment Status"] === "paid" ? "text-green-400" : "text-amber-400"}>
-                                                            {q["Payment Status"] === "paid" ? "Paid ✓" : "Pending"}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex gap-2 mt-2">
-                                                        {q["Payment Status"] !== "paid" ? (
-                                                            <button onClick={() => markPaid(true)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20">Mark Paid</button>
-                                                        ) : (
-                                                            <button onClick={() => markPaid(false)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20">Mark Pending</button>
-                                                        )}
-                                                        <button onClick={() => { setPriceAmount(q["Payment Amount"] || ""); setPriceNotes(""); setShowPriceModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700/50 text-slate-400 hover:text-white">Regenerate Payment Link</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <button onClick={() => { setPriceAmount(""); setPriceNotes(""); setShowPriceModal(true); }} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Create Payment Link</button>
-                                        )}
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                )}
 
-                                {/* Invoice */}
-                                {q["Payment Status"] === "paid" && (
+                                    {/* Estimate & Proforma */}
                                     <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
-                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Invoice</div>
-                                        {q["Invoice Status"] === "active" && q["Invoice Number"] ? (
+                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Estimate & Proforma Invoice</div>
+                                        {q["Doc Status"] === "active" && q["PI Number"] ? (
                                             <div className="space-y-2">
-                                                <div className="text-xs"><span className="text-slate-500">Number:</span> <span className="text-cyan-300 font-mono">{q["Invoice Number"]}</span></div>
-                                                <div className="text-xs"><span className="text-slate-500">Date:</span> <span className="text-slate-300">{q["Invoice Date"] ? new Date(q["Invoice Date"]).toLocaleDateString("en-IN") : "—"}</span></div>
+                                                <div className="text-xs"><span className="text-slate-500">PI Number:</span> <span className="text-cyan-300 font-mono">{q["PI Number"]}</span></div>
+                                                <div className="text-xs"><span className="text-slate-500">PI Date:</span> <span className="text-slate-300">{q["PI Date"] ? new Date(q["PI Date"]).toLocaleDateString("en-IN") : "—"}</span></div>
                                                 <div className="flex gap-2 flex-wrap mt-2">
-                                                    <button onClick={() => downloadInvoice(q, "recipient")} disabled={downloadingInvoice}
+                                                    <button onClick={() => downloadEP(q, "estimate")} disabled={downloadingEP}
                                                         className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-50">
-                                                        {downloadingInvoice ? "Downloading..." : "Download (Customer Copy)"}
+                                                        {downloadingEP ? "Downloading..." : "Download Estimate"}
                                                     </button>
-                                                    <button onClick={() => downloadInvoice(q, "supplier")} disabled={downloadingInvoice}
-                                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700/50 text-slate-400 hover:text-white disabled:opacity-50">
-                                                        Download (Office Copy)
+                                                    <button onClick={() => downloadEP(q, "proforma")} disabled={downloadingEP}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 disabled:opacity-50">
+                                                        {downloadingEP ? "Downloading..." : "Download Proforma"}
                                                     </button>
-                                                    <button onClick={removeInvoice} disabled={removingInvoice}
+                                                    <button onClick={() => openEPModalForRevision(q)}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20">
+                                                        Edit / Revise
+                                                    </button>
+                                                    <button onClick={removeEP} disabled={removingEP}
                                                         className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50">
-                                                        {removingInvoice ? "Voiding..." : "Void Invoice"}
+                                                        {removingEP ? "Voiding..." : "Void"}
                                                     </button>
                                                 </div>
                                             </div>
-                                        ) : q["Invoice Status"] === "removed" ? (
+                                        ) : q["Doc Status"] === "removed" ? (
                                             <div className="space-y-2">
-                                                <p className="text-xs text-red-400/80">Invoice {q["Invoice Number"]} was voided and cannot be reused. Generate a new one if needed.</p>
-                                                <button onClick={() => openInvoiceModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate New Invoice</button>
+                                                <p className="text-xs text-red-400/80">PI {q["PI Number"]} was voided and cannot be reused.</p>
+                                                <button onClick={() => openEPModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate New</button>
                                             </div>
                                         ) : (
-                                            <button onClick={() => openInvoiceModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate Invoice</button>
+                                            <button onClick={() => openEPModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate Estimate + Proforma</button>
                                         )}
                                     </div>
-                                )}
 
-                                {/* Contact */}
-                                <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
-                                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Contact Details</div>
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
-                                        {[
-                                            ["Name", q["Name"]], ["Email", q["Email"]],
-                                            ["Company", q["Company"] || "—"], ["Phone", q["Phone"] || "—"],
-                                            ["Quantity", `× ${q["Quantity"]} units`], ["Surface Finish", q["Surface Finish"]],
-                                        ].map(([label, val]) => (
-                                            <div key={label}>
-                                                <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">{label}</div>
-                                                <div className="text-slate-200 font-mono break-all">{val}</div>
-                                            </div>
-                                        ))}
-                                        {q["Customer Notes"] && (
-                                            <div className="col-span-2">
-                                                <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Customer Notes</div>
-                                                <div className="text-slate-300 bg-slate-900/40 rounded-lg px-3 py-2 leading-relaxed">{q["Customer Notes"]}</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                                    {/* Payment */}
+                                    {(q["Payment Amount"] || paymentUrl || (st === "quoted" && q["Customer Response"] !== "accepted")) && (
+                                        <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
+                                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Payment</div>
+                                            {paymentUrl ? (
+                                                <div className="flex flex-col gap-4">
+                                                    <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/60 rounded-lg px-3 py-2">
+                                                        <span className="flex-1 text-xs font-mono text-cyan-300 truncate">{paymentUrl}</span>
+                                                        <button
+                                                            onClick={() => copyPaymentLink(paymentUrl)}
+                                                            className="shrink-0 px-2.5 py-1 rounded-md text-[10px] font-semibold border border-slate-700/60 text-slate-400 hover:text-white hover:border-slate-500 transition-all"
+                                                        >
+                                                            Copy
+                                                        </button>
+                                                        <a href={paymentUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 px-2.5 py-1 rounded-md text-[10px] font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-all">Open</a>
+                                                    </div>
+                                                    <div className="text-xs space-y-1.5">
+                                                        <div><span className="text-slate-500">Amount:</span> <span className="text-cyan-300 font-mono">₹{q["Payment Amount"]}</span></div>
+                                                        <div>
+                                                            <span className="text-slate-500">Status:</span>{" "}
+                                                            <span className={q["Payment Status"] === "paid" ? "text-green-400" : "text-amber-400"}>
+                                                                {q["Payment Status"] === "paid" ? "Paid ✓" : "Pending"}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex gap-2 mt-2">
+                                                            {q["Payment Status"] !== "paid" ? (
+                                                                <button onClick={() => markPaid(true)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20">Mark Paid</button>
+                                                            ) : (
+                                                                <button onClick={() => markPaid(false)} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20">Mark Pending</button>
+                                                            )}
+                                                            <button onClick={() => { setPriceAmount(q["Payment Amount"] || ""); setPriceNotes(""); setShowPriceModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700/50 text-slate-400 hover:text-white">Regenerate Payment Link</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => { setPriceAmount(""); setPriceNotes(""); setShowPriceModal(true); }} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Create Payment Link</button>
+                                            )}
+                                        </div>
+                                    )}
 
-                                {/* Geometry */}
-                                {hasGeometry && (
+                                    {/* Invoice */}
+                                    {q["Payment Status"] === "paid" && (
+                                        <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
+                                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Invoice</div>
+                                            {q["Invoice Status"] === "active" && q["Invoice Number"] ? (
+                                                <div className="space-y-2">
+                                                    <div className="text-xs"><span className="text-slate-500">Number:</span> <span className="text-cyan-300 font-mono">{q["Invoice Number"]}</span></div>
+                                                    <div className="text-xs"><span className="text-slate-500">Date:</span> <span className="text-slate-300">{q["Invoice Date"] ? new Date(q["Invoice Date"]).toLocaleDateString("en-IN") : "—"}</span></div>
+                                                    <div className="flex gap-2 flex-wrap mt-2">
+                                                        <button onClick={() => downloadInvoice(q, "recipient")} disabled={downloadingInvoice}
+                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-50">
+                                                            {downloadingInvoice ? "Downloading..." : "Download (Customer Copy)"}
+                                                        </button>
+                                                        <button onClick={() => downloadInvoice(q, "supplier")} disabled={downloadingInvoice}
+                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700/50 text-slate-400 hover:text-white disabled:opacity-50">
+                                                            Download (Office Copy)
+                                                        </button>
+                                                        <button onClick={removeInvoice} disabled={removingInvoice}
+                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 disabled:opacity-50">
+                                                            {removingInvoice ? "Voiding..." : "Void Invoice"}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : q["Invoice Status"] === "removed" ? (
+                                                <div className="space-y-2">
+                                                    <p className="text-xs text-red-400/80">Invoice {q["Invoice Number"]} was voided and cannot be reused. Generate a new one if needed.</p>
+                                                    <button onClick={() => openInvoiceModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate New Invoice</button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => openInvoiceModal(q)} className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-semibold hover:bg-cyan-500/20">Generate Invoice</button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Contact */}
                                     <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
-                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Fin Geometry</div>
-                                        <div className="grid grid-cols-3 gap-x-4 gap-y-3 text-xs">
+                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Contact Details</div>
+                                        <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
                                             {[
-                                                ["Fin Type", q["Fin Type"]?.replace(/-/g, " ")],
-                                                ["Base (L × W)", `${q["Base L (mm)"]} × ${q["Base W (mm)"]} mm`],
-                                                ["Total Height", `${q["Total H (mm)"]} mm`],
-                                                ["Base Thickness", `${q["Base Thickness (mm)"]} mm`],
-                                                ["Fin Height", `${q["Fin Height (mm)"]} mm`],
-                                                ["Fin Thick / ⌀", `${q["Fin Thickness (mm)"]} / ${q["Pin Dia (mm)"]} mm`],
-                                                ["Taper Ratio", q["Taper"]],
-                                                ["No. of Fins/Pins", q["No. of Fins"]],
-                                                ["Material", q["Material"]?.split(" --")[0]],
-                                                ["k (W/m·K)", q["k (W/m·K)"]],
+                                                ["Name", q["Name"]], ["Email", q["Email"]],
+                                                ["Company", q["Company"] || "—"], ["Phone", q["Phone"] || "—"],
+                                                ["Quantity", `× ${q["Quantity"]} units`], ["Surface Finish", q["Surface Finish"]],
                                             ].map(([label, val]) => (
                                                 <div key={label}>
                                                     <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">{label}</div>
-                                                    <div className="text-cyan-300 font-mono">{val || "—"}</div>
+                                                    <div className="text-slate-200 font-mono break-all">{val}</div>
                                                 </div>
                                             ))}
+                                            {q["Customer Notes"] && (
+                                                <div className="col-span-2">
+                                                    <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">Customer Notes</div>
+                                                    <div className="text-slate-300 bg-slate-900/40 rounded-lg px-3 py-2 leading-relaxed">{q["Customer Notes"]}</div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                )}
 
-                                {/* Thermal */}
-                                {hasThermal && (
+                                    {/* Geometry */}
+                                    {hasGeometry && (
+                                        <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
+                                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Fin Geometry</div>
+                                            <div className="grid grid-cols-3 gap-x-4 gap-y-3 text-xs">
+                                                {[
+                                                    ["Fin Type", q["Fin Type"]?.replace(/-/g, " ")],
+                                                    ["Base (L × W)", `${q["Base L (mm)"]} × ${q["Base W (mm)"]} mm`],
+                                                    ["Total Height", `${q["Total H (mm)"]} mm`],
+                                                    ["Base Thickness", `${q["Base Thickness (mm)"]} mm`],
+                                                    ["Fin Height", `${q["Fin Height (mm)"]} mm`],
+                                                    ["Fin Thick / ⌀", `${q["Fin Thickness (mm)"]} / ${q["Pin Dia (mm)"]} mm`],
+                                                    ["Taper Ratio", q["Taper"]],
+                                                    ["No. of Fins/Pins", q["No. of Fins"]],
+                                                    ["Material", q["Material"]?.split(" --")[0]],
+                                                    ["k (W/m·K)", q["k (W/m·K)"]],
+                                                ].map(([label, val]) => (
+                                                    <div key={label}>
+                                                        <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">{label}</div>
+                                                        <div className="text-cyan-300 font-mono">{val || "—"}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Thermal */}
+                                    {hasThermal && (
+                                        <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
+                                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Thermal Analysis</div>
+                                            <div className="grid grid-cols-4 gap-3 mb-3">
+                                                {[
+                                                    { label: "Fin Eff. η", val: `${q["Fin Efficiency η (%)"] || "—"}%`, color: "text-cyan-400" },
+                                                    { label: "Effectiveness ε", val: q["Effectiveness ε"] || "—", color: parseFloat(q["Effectiveness ε"]) >= 2 ? "text-green-400" : "text-red-400" },
+                                                    { label: "T_base", val: `${q["T_base (°C)"] || "—"}°C`, color: parseFloat(q["T_base (°C)"]) > 85 ? "text-red-400" : parseFloat(q["T_base (°C)"]) > 70 ? "text-amber-400" : "text-green-400" },
+                                                    { label: "Rθ (°C/W)", val: q["Rθ (°C/W)"] || "—", color: "text-orange-400" },
+                                                ].map(kpi => (
+                                                    <div key={kpi.label} className="bg-slate-900/40 rounded-xl p-3 text-center">
+                                                        <div className={`font-mono font-bold text-base ${kpi.color}`}>{kpi.val}</div>
+                                                        <div className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-wider">{kpi.label}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-xs">
+                                                {[
+                                                    ["Heat Input Q", `${q["Heat Input Q (W)"]} W`],
+                                                    ["Conv. Coeff. h", `${q["Conv. Coeff h"]} W/m²·K`],
+                                                    ["Ambient T∞", `${q["Ambient T (°C)"]} °C`],
+                                                    ["T_tip", `${q["T_tip (°C)"]} °C`],
+                                                    ["ΔT base–tip", `${(parseFloat(q["T_base (°C)"]) - parseFloat(q["T_tip (°C)"])).toFixed(1)} °C`],
+                                                    ["ΔT base–amb", `${(parseFloat(q["T_base (°C)"]) - parseFloat(q["Ambient T (°C)"])).toFixed(1)} °C`],
+                                                ].map(([label, val]) => (
+                                                    <div key={label}>
+                                                        <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">{label}</div>
+                                                        <div className="text-slate-300 font-mono">{isNaN(parseFloat(val as string)) ? val : val}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Admin notes */}
                                     <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
-                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Thermal Analysis</div>
-                                        <div className="grid grid-cols-4 gap-3 mb-3">
-                                            {[
-                                                { label: "Fin Eff. η", val: `${q["Fin Efficiency η (%)"] || "—"}%`, color: "text-cyan-400" },
-                                                { label: "Effectiveness ε", val: q["Effectiveness ε"] || "—", color: parseFloat(q["Effectiveness ε"]) >= 2 ? "text-green-400" : "text-red-400" },
-                                                { label: "T_base", val: `${q["T_base (°C)"] || "—"}°C`, color: parseFloat(q["T_base (°C)"]) > 85 ? "text-red-400" : parseFloat(q["T_base (°C)"]) > 70 ? "text-amber-400" : "text-green-400" },
-                                                { label: "Rθ (°C/W)", val: q["Rθ (°C/W)"] || "—", color: "text-orange-400" },
-                                            ].map(kpi => (
-                                                <div key={kpi.label} className="bg-slate-900/40 rounded-xl p-3 text-center">
-                                                    <div className={`font-mono font-bold text-base ${kpi.color}`}>{kpi.val}</div>
-                                                    <div className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-wider">{kpi.label}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-xs">
-                                            {[
-                                                ["Heat Input Q", `${q["Heat Input Q (W)"]} W`],
-                                                ["Conv. Coeff. h", `${q["Conv. Coeff h"]} W/m²·K`],
-                                                ["Ambient T∞", `${q["Ambient T (°C)"]} °C`],
-                                                ["T_tip", `${q["T_tip (°C)"]} °C`],
-                                                ["ΔT base–tip", `${(parseFloat(q["T_base (°C)"]) - parseFloat(q["T_tip (°C)"])).toFixed(1)} °C`],
-                                                ["ΔT base–amb", `${(parseFloat(q["T_base (°C)"]) - parseFloat(q["Ambient T (°C)"])).toFixed(1)} °C`],
-                                            ].map(([label, val]) => (
-                                                <div key={label}>
-                                                    <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">{label}</div>
-                                                    <div className="text-slate-300 font-mono">{isNaN(parseFloat(val as string)) ? val : val}</div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Internal Admin Notes</div>
+                                        <textarea value={adminNote} onChange={e => setAdminNote(e.target.value)} rows={4}
+                                            placeholder="Pricing, machinist instructions, follow-up actions..."
+                                            className="w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 font-mono text-xs px-3 py-2.5 rounded-xl outline-none focus:border-cyan-500/60 transition-all resize-none placeholder-slate-600" />
+                                        <button onClick={() => updateQuote(q["Quote ID"], { adminNotes: adminNote })} disabled={saving}
+                                            className="mt-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-semibold rounded-lg transition-all disabled:opacity-50">
+                                            {saving ? "Saving..." : "Save Note"}
+                                        </button>
                                     </div>
-                                )}
 
-                                {/* Admin notes */}
-                                <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
-                                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Internal Admin Notes</div>
-                                    <textarea value={adminNote} onChange={e => setAdminNote(e.target.value)} rows={4}
-                                        placeholder="Pricing, machinist instructions, follow-up actions..."
-                                        className="w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 font-mono text-xs px-3 py-2.5 rounded-xl outline-none focus:border-cyan-500/60 transition-all resize-none placeholder-slate-600" />
-                                    <button onClick={() => updateQuote(q["Quote ID"], { adminNotes: adminNote })} disabled={saving}
-                                        className="mt-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-semibold rounded-lg transition-all disabled:opacity-50">
-                                        {saving ? "Saving..." : "Save Note"}
-                                    </button>
                                 </div>
 
+                                {/* Right column — sticky, shows accept action / negotiate action / history */}
+                                {(q["Customer Response"] === "negotiating" || q["Customer Response"] === "accepted" || renderHistory(q["Response History"]).length > 0) && (
+                                    <div className="w-80 flex-shrink-0 sticky top-6 hidden lg:block space-y-4">
+
+                                        {q["Customer Response"] === "accepted" && (
+                                            <div className="bg-green-500/5 border-2 border-green-500/40 rounded-2xl p-5">
+                                                <div className="text-xs font-bold text-green-400 uppercase tracking-wider mb-2">✓ Customer Accepted</div>
+                                                <p className="text-[10px] text-slate-500 mb-3">{q["Customer Response At"] ? fmt(q["Customer Response At"]) : ""}</p>
+                                                {!paymentUrl ? (
+                                                    <button
+                                                        onClick={() => { setPriceAmount(q["Payment Amount"] || epTotalFromQuote(q)); setPriceNotes(""); setShowPriceModal(true); }}
+                                                        className="w-full px-4 py-2 bg-green-500 hover:bg-green-400 text-black rounded-lg text-xs font-bold transition-all"
+                                                    >
+                                                        Set Price & Create Payment Link →
+                                                    </button>
+                                                ) : (
+                                                    <p className="text-xs text-slate-400">Payment link already created — see Payment section below.</p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {q["Customer Response"] === "negotiating" && (
+                                            <div className="bg-amber-500/5 border-2 border-amber-500/40 rounded-2xl p-5">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+                                                        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                                                    </svg>
+                                                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Customer Requested Changes</span>
+                                                </div>
+                                                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
+                                                    {q["Customer Response Notes"] || "No details provided."}
+                                                </p>
+                                                <p className="text-[10px] text-slate-500 mt-4">{q["Customer Response At"] ? fmt(q["Customer Response At"]) : ""}</p>
+                                                <button onClick={() => openEPModalForRevision(q)}
+                                                    className="mt-4 w-full px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-xs font-bold transition-all">
+                                                    Edit Estimate & Proforma →
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {renderHistory(q["Response History"]).length > 0 && (
+                                            <div className="bg-[#0d1520] border border-slate-700/50 rounded-2xl p-4">
+                                                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Response History</div>
+                                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                                    {[...renderHistory(q["Response History"])].reverse().map((entry, i) => {
+                                                        const isAccept = entry.response === "accepted";
+                                                        const isRevise = entry.response === "revised";
+                                                        const color = isAccept ? "text-green-400" : isRevise ? "text-cyan-400" : "text-amber-400";
+                                                        const label = isAccept ? "Customer accepted" : isRevise ? "Admin revised quote" : "Customer requested changes";
+                                                        return (
+                                                            <div key={i} className="border-l-2 border-slate-700/60 pl-3">
+                                                                <div className={`text-xs font-semibold ${color}`}>{label}</div>
+                                                                {entry.piNumber && <div className="text-[10px] text-slate-600 font-mono">{entry.piNumber}</div>}
+                                                                {entry.notes && (
+                                                                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">{entry.notes}</p>
+                                                                )}
+                                                                <div className="text-[10px] text-slate-600 mt-1">{entry.at ? fmt(entry.at) : ""}</div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         );
                     })()}

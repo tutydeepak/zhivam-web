@@ -88,12 +88,21 @@ export async function PATCH(req: NextRequest) {
         const rows = idRes.data.values || [];
         const rowIndex = rows.findIndex(row => row[0] === id);
         if (rowIndex < 1) return NextResponse.json({ error: "Quote not found." }, { status: 404 });
+        const sheetRow = rowIndex + 1;
 
-        await sheets.spreadsheets.values.update({
+        const updates = [
+            { range: `Sheet1!AH${sheetRow}`, values: [[paymentStatus]] },
+        ];
+        // Marking paid automatically moves the quote into production — this
+        // is the ONLY path that should trigger production start, tying it
+        // directly to confirmed payment rather than a separate manual click.
+        if (paymentStatus === "paid") {
+            updates.push({ range: `Sheet1!C${sheetRow}`, values: [["in-production"]] });
+        }
+
+        await sheets.spreadsheets.values.batchUpdate({
             spreadsheetId: sheetId,
-            range: `Sheet1!AH${rowIndex + 1}`,
-            valueInputOption: "RAW",
-            requestBody: { values: [[paymentStatus]] },
+            requestBody: { valueInputOption: "RAW", data: updates },
         });
 
         return NextResponse.json({ success: true });

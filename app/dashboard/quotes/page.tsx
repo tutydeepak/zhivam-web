@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,16 +14,17 @@ interface Quote {
     thermal: { Q: string; h: string; Ta: string; eta: string; eps: string; Tbase: string; Ttip: string; R: string };
     adminNotes: string;
     payment?: { amount: string; status: string; paymentUrl: string };
-    documents?: { piNumber: string; docStatus: string; invoiceNumber: string; invoiceStatus: string };
-
+    documents?: { piNumber: string; docStatus: string; invoiceNumber: string; invoiceStatus: string; customerResponse?: string; customerResponseNotes?: string };
 }
 
-const STEPS = ["New", "In Progress", "Quoted", "Closed"];
+const STEPS = ["New", "In Progress", "Awaiting Response", "Quoted", "In Production", "Closed"];
 
 const STATUS_STYLES: Record<string, string> = {
     new: "bg-slate-500/10 text-slate-300 border-slate-500/30",
-    "in progress": "bg-orange-500/10 text-orange-300 border-orange-500/30",
+    "in progress": "bg-amber-500/10 text-amber-300 border-amber-500/30",
+    "awaiting response": "bg-purple-500/10 text-purple-300 border-purple-500/30",
     quoted: "bg-sky-500/10 text-sky-300 border-sky-500/30",
+    "in production": "bg-orange-500/10 text-orange-300 border-orange-500/30",
     closed: "bg-green-500/10 text-green-300 border-green-500/30",
 };
 
@@ -123,7 +124,7 @@ function PaymentCard({ quote }: { quote: Quote }) {
     return (
         <div
             className={`rounded-xl p-4 border ${paid ? "bg-green-500/5 border-green-500/20" : "bg-cyan-500/5 border-cyan-500/20"}`}
-            onClick={e => e.stopPropagation()} // keep taps inside this card from opening the detail modal / card button
+            onClick={e => e.stopPropagation()}
         >
             <div className="flex items-center justify-between mb-3">
                 <div className="text-[10px] uppercase tracking-wider font-semibold text-cyan-400">
@@ -168,7 +169,7 @@ function DocumentsCard({ quote }: { quote: Quote }) {
 
     const download = async (type: "estimate" | "proforma" | "invoice", e: React.MouseEvent) => {
         e.stopPropagation();
-        if (downloadingType) return; // prevent double-clicks while one is already in flight
+        if (downloadingType) return;
         setFailedType(null);
         setDownloadingType(type);
         try {
@@ -183,7 +184,7 @@ function DocumentsCard({ quote }: { quote: Quote }) {
             URL.revokeObjectURL(url);
         } catch {
             setFailedType(type);
-            setTimeout(() => setFailedType(null), 3000); // auto-clear the error state after a few seconds
+            setTimeout(() => setFailedType(null), 3000);
         } finally {
             setDownloadingType(null);
         }
@@ -195,52 +196,189 @@ function DocumentsCard({ quote }: { quote: Quote }) {
         return baseLabel;
     };
 
-    const btnBase = "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5";
-
     const Spinner = () => (
         <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin inline-block" />
     );
+    const SpinnerSmall = () => (
+        <span className="w-2.5 h-2.5 rounded-full border-2 border-current border-t-transparent animate-spin inline-block" />
+    );
 
     return (
-        <div className="rounded-xl p-4 border bg-slate-500/5 border-slate-500/20">
-            <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-2">Documents</div>
-            <div className="flex flex-wrap gap-2">
-                {hasEP && (
-                    <>
+        <div className="rounded-xl p-4 border bg-slate-500/5 border-slate-500/20 space-y-3">
+            {/* Tax Invoice — primary action once it exists */}
+            {hasTaxInvoice && (
+                <div>
+                    <div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-2">Documents</div>
+                    <button
+                        onClick={(e) => download("invoice", e)}
+                        disabled={downloadingType !== null}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5 ${failedType === "invoice" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20"}`}
+                    >
+                        {downloadingType === "invoice" && <Spinner />}
+                        {buttonLabel("invoice", "Download Tax Invoice")}
+                    </button>
+                </div>
+            )}
+
+            {/* Estimate / Proforma — de-emphasized once Tax Invoice exists */}
+            {hasEP && (
+                <div className={hasTaxInvoice ? "pt-2 border-t border-slate-700/40" : ""}>
+                    <div className="text-[9px] uppercase tracking-wider font-semibold text-slate-500 mb-2">
+                        {hasTaxInvoice ? "Pre-payment documents" : "Documents"}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                         <button
                             onClick={(e) => download("estimate", e)}
                             disabled={downloadingType !== null}
-                            className={`${btnBase} ${failedType === "estimate" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20"}`}
+                            className={
+                                hasTaxInvoice
+                                    ? `px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5 ${failedType === "estimate" ? "bg-red-500/5 border-red-500/20 text-red-400/80" : "bg-slate-500/5 border-slate-600/40 text-slate-400 hover:text-slate-300 hover:border-slate-500/60"}`
+                                    : `px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5 ${failedType === "estimate" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20"}`
+                            }
                         >
-                            {downloadingType === "estimate" && <Spinner />}
+                            {downloadingType === "estimate" && (hasTaxInvoice ? <SpinnerSmall /> : <Spinner />)}
                             {buttonLabel("estimate", "Download Estimate")}
                         </button>
                         <button
                             onClick={(e) => download("proforma", e)}
                             disabled={downloadingType !== null}
-                            className={`${btnBase} ${failedType === "proforma" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20"}`}
+                            className={
+                                hasTaxInvoice
+                                    ? `px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5 ${failedType === "proforma" ? "bg-red-500/5 border-red-500/20 text-red-400/80" : "bg-slate-500/5 border-slate-600/40 text-slate-400 hover:text-slate-300 hover:border-slate-500/60"}`
+                                    : `px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5 ${failedType === "proforma" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-teal-500/10 border-teal-500/30 text-teal-400 hover:bg-teal-500/20"}`
+                            }
                         >
-                            {downloadingType === "proforma" && <Spinner />}
+                            {downloadingType === "proforma" && (hasTaxInvoice ? <SpinnerSmall /> : <Spinner />)}
                             {buttonLabel("proforma", "Download Proforma")}
                         </button>
-                    </>
-                )}
-                {hasTaxInvoice && (
-                    <button
-                        onClick={(e) => download("invoice", e)}
-                        disabled={downloadingType !== null}
-                        className={`${btnBase} ${failedType === "invoice" ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20" : "bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20"}`}
-                    >
-                        {downloadingType === "invoice" && <Spinner />}
-                        {buttonLabel("invoice", "Download Tax Invoice")}
-                    </button>
-                )}
-            </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-function QuoteDetailModal({ quote, onClose }: { quote: Quote; onClose: () => void }) {
+function ResponseCard({ quote, onResponded }: { quote: Quote; onResponded: () => void }) {
+    const [showNegotiate, setShowNegotiate] = useState(false);
+    const [notes, setNotes] = useState("");
+    const [submitting, setSubmitting] = useState<"accepted" | "negotiating" | null>(null);
+    const [error, setError] = useState("");
+
+    const alreadyResponded = !!quote.documents?.customerResponse;
+    if (quote.status?.toLowerCase() !== "awaiting-response" || alreadyResponded) return null;
+
+    const submit = async (response: "accepted" | "negotiating") => {
+        if (response === "negotiating" && !notes.trim()) {
+            setError("Please describe what you'd like changed.");
+            return;
+        }
+        setError("");
+        setSubmitting(response);
+        try {
+            const res = await fetch("/api/quote/respond", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ id: quote.id, response, notes }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed to submit");
+            onResponded();
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : "Something went wrong");
+        } finally {
+            setSubmitting(null);
+        }
+    };
+
+    return (
+        <div
+            className="rounded-xl p-4 border bg-purple-500/5 border-purple-500/20"
+            onClick={e => e.stopPropagation()}
+        >
+            <div className="text-[10px] uppercase tracking-wider font-semibold text-purple-400 mb-2">
+                Review Your Estimate &amp; Proforma
+            </div>
+            <p className="text-[11px] text-slate-400 mb-3">
+                Please review the documents above. Accept to proceed to payment, or let us know if you&apos;d like any changes.
+            </p>
+
+            {!showNegotiate ? (
+                <div className="flex gap-2 flex-wrap">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); submit("accepted"); }}
+                        disabled={submitting !== null}
+                        className="px-4 py-2 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-400 text-black disabled:opacity-60 transition-all"
+                    >
+                        {submitting === "accepted" ? "Submitting..." : "✓ Accept & Proceed"}
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setShowNegotiate(true); }}
+                        disabled={submitting !== null}
+                        className="px-4 py-2 rounded-lg text-xs font-semibold border border-slate-600/60 text-slate-300 hover:border-slate-500 disabled:opacity-60 transition-all"
+                    >
+                        Request Changes
+                    </button>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    <textarea
+                        value={notes}
+                        onChange={e => setNotes(e.target.value)}
+                        onClick={e => e.stopPropagation()}
+                        rows={3}
+                        placeholder="What would you like changed? (price, quantity, specifications, etc.)"
+                        className="w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs px-3 py-2 rounded-lg outline-none focus:border-purple-500/60 resize-none"
+                    />
+                    {error && <p className="text-[11px] text-red-400">{error}</p>}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowNegotiate(false); setError(""); }}
+                            disabled={submitting !== null}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700/60 text-slate-400"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); submit("negotiating"); }}
+                            disabled={submitting !== null}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-60"
+                        >
+                            {submitting === "negotiating" ? "Sending..." : "Send Request"}
+                        </button>
+                    </div>
+                </div>
+            )}
+            {error && !showNegotiate && <p className="text-[11px] text-red-400 mt-2">{error}</p>}
+        </div>
+    );
+}
+
+function ResponseAcknowledged({ quote }: { quote: Quote }) {
+    const response = quote.documents?.customerResponse;
+    if (!response) return null;
+
+    const accepted = response === "accepted";
+    return (
+        <div className={`rounded-xl p-4 border ${accepted ? "bg-green-500/5 border-green-500/20" : "bg-amber-500/5 border-amber-500/20"}`} onClick={e => e.stopPropagation()}>
+            <div className={`text-[10px] uppercase tracking-wider font-semibold mb-1 ${accepted ? "text-green-400" : "text-amber-400"}`}>
+                {accepted ? "✓ You accepted this quote" : "Change request sent"}
+            </div>
+            <p className="text-[11px] text-slate-400">
+                {accepted
+                    ? "Thanks — we'll follow up shortly with a payment link."
+                    : "We've received your request and will get back to you with an updated quote."}
+            </p>
+            {quote.documents?.customerResponseNotes && (
+                <p className="text-xs text-slate-300 bg-slate-900/40 rounded-lg px-3 py-2 mt-2 leading-relaxed">
+                    {quote.documents.customerResponseNotes}
+                </p>
+            )}
+        </div>
+    );
+}
+
+function QuoteDetailModal({ quote, onClose, onResponded }: { quote: Quote; onClose: () => void; onResponded: () => void }) {
     const g = quote.geometry, t = quote.thermal, c = quote.contact;
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4" onClick={onClose}>
@@ -272,6 +410,8 @@ function QuoteDetailModal({ quote, onClose }: { quote: Quote; onClose: () => voi
 
                     <PaymentCard quote={quote} />
                     <DocumentsCard quote={quote} />
+                    <ResponseCard quote={quote} onResponded={onResponded} />
+                    <ResponseAcknowledged quote={quote} />
 
                     {quote.adminNotes && (
                         <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
@@ -343,6 +483,14 @@ export default function MyQuotesPage() {
         if (!loading && !user) router.push("/login?redirect=/dashboard/quotes");
     }, [loading, user, router]);
 
+    const refetchQuotes = useCallback(() => {
+        if (!user) return;
+        fetch("/api/quote/my", { credentials: "include", cache: "no-store" })
+            .then(res => res.json())
+            .then(data => { if (data.quotes) setQuotes(data.quotes); })
+            .catch(() => { });
+    }, [user]);
+
     useEffect(() => {
         if (!user) return;
         (async () => {
@@ -361,22 +509,23 @@ export default function MyQuotesPage() {
 
     useEffect(() => {
         if (!user) return;
-        const refetch = () => {
-            fetch("/api/quote/my", { credentials: "include", cache: "no-store" })
-                .then(res => res.json())
-                .then(data => { if (data.quotes) setQuotes(data.quotes); })
-                .catch(() => { });
-        };
         const handleVisibility = () => {
-            if (document.visibilityState === "visible") refetch();
+            if (document.visibilityState === "visible") refetchQuotes();
         };
         document.addEventListener("visibilitychange", handleVisibility);
-        const refreshInterval = window.setInterval(refetch, 8000);
+        const refreshInterval = window.setInterval(refetchQuotes, 8000);
         return () => {
             document.removeEventListener("visibilitychange", handleVisibility);
             window.clearInterval(refreshInterval);
         };
-    }, [user]);
+    }, [user, refetchQuotes]);
+
+    // Keep the open detail modal's data in sync whenever quotes refresh
+    useEffect(() => {
+        if (!selected) return;
+        const fresh = quotes.find(q => q.id === selected.id);
+        if (fresh) setSelected(fresh);
+    }, [quotes]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (loading || fetching) {
         return (
@@ -404,7 +553,7 @@ export default function MyQuotesPage() {
                 </div>
                 <p className="text-sm text-slate-400 mb-6 ml-12">Track the status of your manufacturing quote requests.</p>
 
-                {/* Stats strip — only shown once there's data to summarize */}
+                {/* Stats strip */}
                 {!error && quotes.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
                         {[
@@ -504,12 +653,16 @@ export default function MyQuotesPage() {
                             <div className="mt-3">
                                 <DocumentsCard quote={q} />
                             </div>
+                            <div className="mt-3">
+                                <ResponseCard quote={q} onResponded={refetchQuotes} />
+                            </div>
+                            <ResponseAcknowledged quote={q} />
                         </div>
                     ))}
                 </div>
             </div>
 
-            {selected && <QuoteDetailModal quote={selected} onClose={() => setSelected(null)} />}
+            {selected && <QuoteDetailModal quote={selected} onClose={() => setSelected(null)} onResponded={refetchQuotes} />}
         </div>
     );
 }
